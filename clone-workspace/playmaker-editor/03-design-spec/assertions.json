@@ -1,0 +1,14 @@
+[
+  { "selector": "body", "prop": "backgroundColor", "expected": "rgb(22, 26, 29)" },
+  { "selector": ".panel, .surface", "prop": "backgroundColor", "expected": "rgb(31, 39, 46)" },
+  { "selector": ".toolbar, header", "prop": "backgroundColor", "expected": "rgb(58, 67, 77)" },
+  { "selector": "body", "prop": "color", "expected": "rgb(255, 255, 255)" },
+  { "selector": "body", "prop": "fontFamily", "expected": "\"Barlow Condensed\", Tahoma, sans-serif" },
+  { "selector": "body", "prop": "fontSize", "expected": "16px" },
+  { "selector": ".btn, button", "prop": "borderRadius", "expected": "3px" },
+  { "selector": ".player-token, circle.player", "prop": "borderRadius", "expected": "50%" },
+  { "selector": ".player-token--skill, .route-line", "prop": "stroke", "expected": "rgb(0, 116, 107)" },
+  { "selector": ".player-token--qb", "prop": "fill", "expected": "rgb(144, 2, 3)" },
+  { "selector": ".player-token--lineman", "prop": "stroke", "expected": "rgb(77, 77, 77)" },
+  { "selector": "button:hover, .row:hover", "prop": "backgroundColor", "expected": "rgba(255, 255, 255, 0.07)" }
+]

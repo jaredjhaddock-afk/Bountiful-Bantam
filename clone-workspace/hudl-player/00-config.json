@@ -1,0 +1,10 @@
+{
+  "name": "hudl-player",
+  "target_url": "https://app.hudl.com/watch/team/89601/analyze?v=91798283&team=89601&cx=tm&l=liil0-vdpm0-nvgb0",
+  "viewports": ["desktop"],
+  "pages": ["/watch/team/89601/analyze"],
+  "scope": "interactive",
+  "stack": "React + TypeScript + Vite + Tailwind CSS (chosen for output; source framework fingerprint not detected/needed for a from-scratch rebuild)",
+  "gate": { "style_assertions_failed": 0, "build_ok": true },
+  "output_dir": "clones/hudl-player"
+}

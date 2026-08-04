@@ -1,0 +1,47 @@
+{
+  "route": "/app/playbook/{id}/plays/{id}",
+  "interactions": [
+    {
+      "action_slug": "open-new-play-modal",
+      "trigger": "tile[New Offensive Play]",
+      "kind": "click",
+      "reveals": ["modal: play name input, Formation list (I Right/Split Right/Deuce/Duo), Categories list (Run/Pass), per-position 'Position Note' rows (O/X/Z/F/H/RT/LT), confirm checkmark"],
+      "captured": true
+    },
+    {
+      "action_slug": "open-editor-canvas",
+      "trigger": "confirm new play",
+      "kind": "click",
+      "reveals": ["field canvas: horizontal yard-line rulers with 5/10/15 labels both sides, line of scrimmage, offensive player tokens as colored circles with position labels (O=red/QB, X/Z/F/H/Y=teal skill positions, LT/LG/C/RG/RT=gray linemen as small squares/circles), top toolbar: info / lock-unlock / film-clapper / bracket-notes / route-arrow / huddle-personnel / play-triangle icons"],
+      "captured": true
+    },
+    {
+      "action_slug": "open-annotations-panel",
+      "trigger": "toolbar route-arrow icon",
+      "kind": "click",
+      "reveals": ["'ANNOTATIONS' sub-toolbar: 4 drag-onto-field icons — straight arrow, football icon, cone/marker icon, comment/note bubble icon — with 'DRAG ONTO FIELD' label; green checkmark to exit"],
+      "captured": true
+    },
+    {
+      "action_slug": "select-player-token",
+      "trigger": "click/drag a skill-position player circle (X)",
+      "kind": "click",
+      "reveals": ["player gets highlighted ring; bottom slide-up toolbar appears: sliders/settings icon, motion-arrows icon, star icon, squiggle/route-type icon, more(...) icon, straight-up-arrow icon, curve icon, red 'no' (remove route) icon, green confirm checkmark"],
+      "captured": true
+    },
+    {
+      "action_slug": "select-route-curve-type",
+      "trigger": "bottom toolbar curve icon",
+      "kind": "click",
+      "reveals": ["sets active route-drawing style to curved; no path drawn until a drag gesture from the player is performed (not yet tested)"],
+      "captured": true
+    }
+  ],
+  "unreached": [
+    {"action_slug": "draw-actual-route-path", "trigger": "drag from player token across field", "reason": "not attempted this pass — deferred to avoid further edits before check-in"},
+    {"action_slug": "formations-panel-edit", "trigger": "left sidebar 'Edit Formations' (seen on playbook list view, not yet opened)", "reason": "deferred to next pass"},
+    {"action_slug": "categories-tab", "trigger": "left sidebar 'CATEGORIES' tab", "reason": "deferred to next pass"},
+    {"action_slug": "defensive-play-view", "trigger": "unknown — only offensive play creation tested (diamond icon in left sidebar of playbook view may toggle defense)", "reason": "deferred to next pass"},
+    {"action_slug": "print-share-icons", "trigger": "playbook list row icons (printer, people/share, info)", "reason": "deferred, low design value"}
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "playmaker-editor",
+  "target_url": "https://www.tacklefootballplaymaker.com/app/",
+  "viewports": [
+    "desktop"
+  ],
+  "pages": [
+    "/app/"
+  ],
+  "scope": "interactive",
+  "stack": "React + TypeScript + Vite + Tailwind CSS (chosen for output; source framework fingerprint not detected/needed for a from-scratch rebuild)",
+  "gate": {
+    "style_assertions_failed": 0,
+    "build_ok": true
+  },
+  "output_dir": "clones/playmaker-editor"
+}

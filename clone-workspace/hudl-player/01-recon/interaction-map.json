@@ -1,0 +1,52 @@
+{
+  "route": "/watch/team/89601/analyze",
+  "interactions": [
+    {
+      "action_slug": "video-control-bar",
+      "trigger": "hover over video reveals bottom control bar",
+      "kind": "hover",
+      "reveals": [
+        "scrub bar with orange 'played' fill and two white circular handles at the extreme ends (clip in/out trim handles, bound the current clip within the longer film)",
+        "transport row (left to right): skip-to-prev-clip, fast-reverse (◀◀), single-step-back (◀), jump-back-5s (↺5), play/pause, jump-forward-5s (↻5), single-step-forward (▶), fast-forward (▶▶), skip-to-next-clip (▶|), collapse-controls chevron"
+      ],
+      "captured": true
+    },
+    {
+      "action_slug": "click-fast-reverse",
+      "trigger": "◀◀ icon",
+      "kind": "click",
+      "reveals": [
+        "performed a one-shot backward seek (jumped ~6s back), then playback continued forward at normal speed — this is a CLICK-based seek/skip, not a press-and-hold variable-speed scrub. No evidence of a dedicated slow-motion (0.4x) hold control in this control bar."
+      ],
+      "captured": true
+    },
+    {
+      "action_slug": "right-side-tools",
+      "trigger": "icon cluster right of the scrub-bar collapse chevron",
+      "kind": "click",
+      "reveals": [
+        "keyboard-shortcuts icon, picture-in-picture icon, a loop/repeat icon (two circular arrows — likely toggles looping the current clip), a '2K' quality selector badge, mute/volume icon, fullscreen expand icon"
+      ],
+      "captured": true
+    },
+    {
+      "action_slug": "top-play-breakdown-strip",
+      "trigger": "above the video: play-by-play breakdown columns (PLAY #, ODK, DN, DIST, YARD LN, HASH, OFF FORM, OFF STR, BACKFIELD, OFF PLAY, PLAY TYPE, PLAY DIR, RESULT, GN/LS, EFF, DEF FRONT, DEF STR, BLITZ, COVERAGE, QTR)",
+      "kind": "n/a (static, out of scope)",
+      "reveals": ["This is Hudl's game-breakdown/stat-tagging feature layered on the video, not part of the requested video-player scope. Noted but not pursued further."],
+      "captured": true
+    },
+    {
+      "action_slug": "right-icon-rail",
+      "trigger": "far-right vertical icon rail: Library / Video / Reports / Comments / Grid",
+      "kind": "n/a (not clicked)",
+      "reveals": ["View-switcher for the surrounding app shell (clip library, this video view, stat reports, comments, spreadsheet grid) — app-shell navigation, not the video player itself."],
+      "captured": true
+    }
+  ],
+  "unreached": [
+    {"action_slug": "telestration-drawing-tool", "trigger": "unknown — no pencil/draw icon found in the control bar, right-side tool cluster, or top icon row for this particular clip/context", "reason": "Not located in this pass; Hudl's telestration/drawing feature may live behind a different entry point (e.g. a dedicated 'Tool' mode, right-click context menu, or a feature gated by video type/permissions) not surfaced for this compilation ('Intercut') clip. Our own app's drawing tool is independently spec'd from the user's own requirements regardless."},
+    {"action_slug": "loop-icon-behavior", "trigger": "the two-circular-arrows icon in the right-side tool cluster", "reason": "identified visually but not clicked/tested this pass"},
+    {"action_slug": "clip-trim-handle-drag", "trigger": "the white circular handles at each end of the scrub bar", "reason": "identified visually (their position strongly suggests in/out trim handles) but drag behavior not tested this pass"}
+  ]
+}
