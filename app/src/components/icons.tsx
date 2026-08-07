@@ -56,6 +56,10 @@ export const PersonnelIcon = (p: IconProps) => (
     <path d="M4 19c0-3 2.5-5 5-5s5 2 5 5M15 19c0-2.3 1.6-4 4-4" />
   </svg>
 )
+// Both source files exported a `PlayIcon` with different glyphs
+// (playmaker-editor: circle+triangle; hudl-player: plain triangle).
+// This collision was resolved by keeping playmaker-editor's version as
+// `PlayIcon`; the hudl-player version is exported below as `PlayTriangleIcon`.
 export const PlayIcon = (p: IconProps) => (
   <svg {...base(p)}>
     <circle cx="12" cy="12" r="9" />
@@ -245,5 +249,10 @@ export const DriveIcon = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M8 3h8l6 10.5-4 6.5H6l-4-6.5z" />
     <path d="M8 3l6 10.5M18 20l-6-10.5" />
+  </svg>
+)
+export const PlayTriangleIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M7 5l12 7-12 7z" fill="currentColor" stroke="none" />
   </svg>
 )
