@@ -85,7 +85,7 @@ export const VideoStage = forwardRef<MediaController, VideoStageProps>(function 
 
   if (source.type === 'drive') {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-black text-center text-text-muted">
+      <div className="flex h-full w-full items-center justify-center bg-black text-center text-muted">
         <div>
           <p className="mb-2">Google Drive preview</p>
           <p className="text-xs">Connecting a real Drive file requires OAuth/Picker setup not available in this demo.</p>
