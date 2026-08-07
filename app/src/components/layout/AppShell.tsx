@@ -6,12 +6,14 @@ interface AppShellProps {
   subtitle?: string
   onBack?: () => void
   center?: ReactNode
+  nav?: ReactNode
   children: ReactNode
 }
 
-export function AppShell({ title, subtitle, onBack, center, children }: AppShellProps) {
+export function AppShell({ title, subtitle, onBack, center, nav, children }: AppShellProps) {
   return (
     <div className="flex h-full flex-col bg-app-bg text-text">
+      {nav && <div className="border-b border-white/10 bg-app-bg px-4">{nav}</div>}
       <header className="flex items-center justify-between border-b border-white/10 bg-app-bg px-4 py-3">
         <div className="flex items-center gap-3">
           {onBack && (

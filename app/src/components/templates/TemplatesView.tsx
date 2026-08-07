@@ -4,14 +4,15 @@ import { FormationsGallery } from './FormationsGallery'
 import { RouteTreeGallery } from './RouteTreeGallery'
 
 interface TemplatesViewProps {
+  nav?: React.ReactNode
   onBack: () => void
 }
 
-export function TemplatesView({ onBack }: TemplatesViewProps) {
+export function TemplatesView({ nav, onBack }: TemplatesViewProps) {
   const [tab, setTab] = useState<'formations' | 'routeTree'>('formations')
 
   return (
-    <AppShell title="Offensive Templates" onBack={onBack}>
+    <AppShell title="Offensive Templates" onBack={onBack} nav={nav}>
       <div className="flex bg-panel text-sm font-bold uppercase tracking-wide">
         <button
           onClick={() => setTab('formations')}

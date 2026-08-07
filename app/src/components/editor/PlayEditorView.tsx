@@ -8,11 +8,12 @@ import { FieldCanvas } from './FieldCanvas'
 import { RouteToolBar } from './RouteToolBar'
 
 interface PlayEditorViewProps {
+  nav?: React.ReactNode
   playId: string
   onBack: () => void
 }
 
-export function PlayEditorView({ playId, onBack }: PlayEditorViewProps) {
+export function PlayEditorView({ nav, playId, onBack }: PlayEditorViewProps) {
   const { plays, getFormation, updatePlay } = usePlaybook()
   const play = plays.find((p) => p.id === playId)
 
@@ -70,7 +71,7 @@ export function PlayEditorView({ playId, onBack }: PlayEditorViewProps) {
   }
 
   return (
-    <AppShell title={play.name} subtitle={formation?.name} onBack={onBack}>
+    <AppShell title={play.name} subtitle={formation?.name} onBack={onBack} nav={nav}>
       <div className="relative flex h-full flex-col">
         <EditorToolbar
           locked={locked}

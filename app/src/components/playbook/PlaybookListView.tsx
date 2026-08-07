@@ -10,11 +10,12 @@ import { PlayCard } from './PlayCard'
 import { UnitTabs } from './UnitTabs'
 
 interface PlaybookListViewProps {
+  nav?: React.ReactNode
   onOpenPlay: (id: string) => void
   onOpenTemplates: () => void
 }
 
-export function PlaybookListView({ onOpenPlay, onOpenTemplates }: PlaybookListViewProps) {
+export function PlaybookListView({ nav, onOpenPlay, onOpenTemplates }: PlaybookListViewProps) {
   const { teamName, formationsForUnit, categories, plays } = usePlaybook()
   const [unit, setUnit] = useState<Unit>('offense')
   const [filterMode, setFilterMode] = useState<FilterMode>('formations')
@@ -35,7 +36,7 @@ export function PlaybookListView({ onOpenPlay, onOpenTemplates }: PlaybookListVi
     : unitPlays
 
   return (
-    <AppShell title={`${teamName} Playbooks`}>
+    <AppShell title={`${teamName} Playbooks`} nav={nav}>
       <UnitTabs unit={unit} onChange={(u) => (setUnit(u), setActiveFilterId(null))} />
       <div className="flex h-[calc(100%-3rem)]">
         <div className="flex flex-col">
