@@ -1313,3 +1313,10 @@ No commit for this task — it's verification only. If any issue was found and f
 - Supabase backend: auth (email + team code), `teams`/`users`/`formations`/`categories`/`plays`/`clips` tables per the design spec, RLS policies. Blocked on the user creating a Supabase project and providing its URL + anon key.
 - Google Drive picker integration (OAuth credentials required).
 - Retiring `clones/playmaker-editor` and `clones/hudl-player` once `app/` is confirmed as the sole active codebase (keep them until then as working reference/fallback).
+
+### Known gaps carried over from the prototypes (not regressions from this merge, but undecided/unwired)
+
+- **Video Review state is discarded when switching to Playbook and back.** `App.tsx` unmounts the inactive section, so a loaded video source, trim points, and telestrator drawings are lost on switch (Playbook data survives via `PlaybookProvider`, which sits above the switch — video state doesn't have an equivalent). Needs a deliberate product decision: lift `source` state up, or keep both sections mounted and toggle visibility instead of unmounting.
+- **`NewPlayModal`'s "Optional Play Notes" textarea isn't wired to any state** — text typed there is silently discarded. Pre-existing in the original playmaker-editor prototype, carried over verbatim.
+- **The play editor's lock toggle is cosmetic only** — it changes icon styling but doesn't actually prevent editing.
+- **`useHoldScrub` and the loop-resume retry logic in `VideoPlayerPage.tsx` have no automated test coverage** — both were manually verified (including the specific loop-resume bug fix), but a regression here would only be caught by re-running that manual verification, not CI. `useHoldScrub` is testable today with `vi.useFakeTimers()` and a mock `MediaController`.
