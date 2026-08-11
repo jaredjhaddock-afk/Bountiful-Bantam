@@ -8,18 +8,21 @@ import { VideoStage } from './VideoStage'
 
 interface VideoPlayerPageProps {
   source: VideoSource
+  initialTrim?: { inPoint: number; outPoint: number }
+  initialStrokes?: Stroke[]
+  onStateChange?: (state: { inPoint: number; outPoint: number; drawingStrokes: Stroke[] }) => void
 }
 
-export function VideoPlayerPage({ source }: VideoPlayerPageProps) {
+export function VideoPlayerPage({ source, initialTrim, initialStrokes, onStateChange }: VideoPlayerPageProps) {
   const controllerRef = useRef<MediaController>(null)
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
   const [playing, setPlaying] = useState(false)
-  const [inPoint, setInPoint] = useState(0)
-  const [outPoint, setOutPoint] = useState(0)
+  const [inPoint, setInPoint] = useState(initialTrim?.inPoint ?? 0)
+  const [outPoint, setOutPoint] = useState(initialTrim?.outPoint ?? 0)
   const [looping, setLooping] = useState(false)
   const [drawMode, setDrawMode] = useState(false)
-  const [strokes, setStrokes] = useState<Stroke[]>([])
+  const [strokes, setStrokes] = useState<Stroke[]>(initialStrokes ?? [])
   const [penColor] = useState('#00746b')
   const [penWidth] = useState(3)
 
@@ -65,6 +68,10 @@ export function VideoPlayerPage({ source }: VideoPlayerPageProps) {
   useEffect(() => {
     if (playing) loopingBackRef.current = false
   }, [playing])
+
+  useEffect(() => {
+    onStateChange?.({ inPoint, outPoint, drawingStrokes: strokes })
+  }, [inPoint, outPoint, strokes, onStateChange])
 
   return (
     <div className="relative flex h-full flex-col">

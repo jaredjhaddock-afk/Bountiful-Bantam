@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { LoginScreen } from './auth/LoginScreen'
 import { JoinTeamScreen } from './auth/JoinTeamScreen'
 import { PlaybookProvider } from './state/playbookStore'
+import { ClipsProvider } from './state/clipsStore'
 import { VideoReviewPage } from './pages/VideoReviewPage'
 import { PlaybookPage } from './pages/PlaybookPage'
 
@@ -33,7 +34,9 @@ function AuthenticatedApp() {
 
   return (
     <PlaybookProvider>
-      {section === 'video' ? <VideoReviewPage nav={nav} /> : <PlaybookPage nav={nav} />}
+      <ClipsProvider>
+        {section === 'video' ? <VideoReviewPage nav={nav} /> : <PlaybookPage nav={nav} />}
+      </ClipsProvider>
     </PlaybookProvider>
   )
 }
