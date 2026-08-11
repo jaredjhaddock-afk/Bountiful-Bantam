@@ -1,9 +1,10 @@
 import { useState } from 'react'
+import type { Unit } from '../types/play'
 import { PlayEditorView } from '../components/editor/PlayEditorView'
 import { PlaybookListView } from '../components/playbook/PlaybookListView'
 import { TemplatesView } from '../components/templates/TemplatesView'
 
-type View = { name: 'list' } | { name: 'editor'; playId: string } | { name: 'templates' }
+type View = { name: 'list' } | { name: 'editor'; playId: string } | { name: 'templates'; unit: Unit }
 
 interface PlaybookPageProps {
   nav: React.ReactNode
@@ -16,13 +17,13 @@ export function PlaybookPage({ nav }: PlaybookPageProps) {
     return <PlayEditorView nav={nav} playId={view.playId} onBack={() => setView({ name: 'list' })} />
   }
   if (view.name === 'templates') {
-    return <TemplatesView nav={nav} onBack={() => setView({ name: 'list' })} />
+    return <TemplatesView nav={nav} unit={view.unit} onBack={() => setView({ name: 'list' })} />
   }
   return (
     <PlaybookListView
       nav={nav}
       onOpenPlay={(playId) => setView({ name: 'editor', playId })}
-      onOpenTemplates={() => setView({ name: 'templates' })}
+      onOpenTemplates={(unit) => setView({ name: 'templates', unit })}
     />
   )
 }

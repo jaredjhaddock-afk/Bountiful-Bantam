@@ -12,7 +12,7 @@ import { UnitTabs } from './UnitTabs'
 interface PlaybookListViewProps {
   nav?: React.ReactNode
   onOpenPlay: (id: string) => void
-  onOpenTemplates: () => void
+  onOpenTemplates: (unit: Unit) => void
 }
 
 export function PlaybookListView({ nav, onOpenPlay, onOpenTemplates }: PlaybookListViewProps) {
@@ -46,7 +46,7 @@ export function PlaybookListView({ nav, onOpenPlay, onOpenTemplates }: PlaybookL
             activeId={activeFilterId}
             onSelect={setActiveFilterId}
             editLabel={filterMode === 'formations' ? 'Edit Formations' : 'Edit Categories'}
-            onEdit={onOpenTemplates}
+            onEdit={() => onOpenTemplates(unit)}
           />
         </div>
         <div className="flex-1 overflow-auto p-6">

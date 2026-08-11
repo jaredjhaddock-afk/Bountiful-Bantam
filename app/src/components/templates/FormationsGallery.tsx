@@ -1,14 +1,23 @@
+import type { Unit } from '../../types/play'
 import { usePlaybook } from '../../state/playbookStore'
 import { FieldCanvas } from '../editor/FieldCanvas'
 
-export function FormationsGallery() {
+interface FormationsGalleryProps {
+  unit: Unit
+  onNewFormation: () => void
+}
+
+export function FormationsGallery({ unit, onNewFormation }: FormationsGalleryProps) {
   const { formationsForUnit } = usePlaybook()
-  const formations = formationsForUnit('offense')
+  const formations = formationsForUnit(unit)
 
   return (
     <div className="flex flex-wrap gap-4 p-6">
-      <button className="flex h-44 w-56 flex-col items-center justify-center rounded-standard border border-dashed border-white/15 text-muted hover:border-accent-teal hover:text-text">
-        + New Offensive Formation
+      <button
+        onClick={onNewFormation}
+        className="flex h-44 w-56 flex-col items-center justify-center rounded-standard border border-dashed border-white/15 text-muted hover:border-accent-teal hover:text-text"
+      >
+        + New Formation
       </button>
       {formations.map((f) => (
         <div key={f.id} className="flex h-44 w-56 flex-col overflow-hidden rounded-standard border border-white/10 bg-app-bg">
