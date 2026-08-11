@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { AuthProvider, useAuth } from './auth/AuthProvider'
+import { LoginScreen } from './auth/LoginScreen'
+import { JoinTeamScreen } from './auth/JoinTeamScreen'
 import { PlaybookProvider } from './state/playbookStore'
 import { VideoReviewPage } from './pages/VideoReviewPage'
 import { PlaybookPage } from './pages/PlaybookPage'
@@ -24,7 +27,7 @@ function NavSwitcher({ section, onChange }: { section: Section; onChange: (s: Se
   )
 }
 
-function App() {
+function AuthenticatedApp() {
   const [section, setSection] = useState<Section>('video')
   const nav = <NavSwitcher section={section} onChange={setSection} />
 
@@ -32,6 +35,25 @@ function App() {
     <PlaybookProvider>
       {section === 'video' ? <VideoReviewPage nav={nav} /> : <PlaybookPage nav={nav} />}
     </PlaybookProvider>
+  )
+}
+
+function Gate() {
+  const { loading, session, profile } = useAuth()
+
+  if (loading) {
+    return <div className="flex h-full items-center justify-center bg-app-bg text-muted">Loading…</div>
+  }
+  if (!session) return <LoginScreen />
+  if (!profile?.teamId) return <JoinTeamScreen />
+  return <AuthenticatedApp />
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <Gate />
+    </AuthProvider>
   )
 }
 
