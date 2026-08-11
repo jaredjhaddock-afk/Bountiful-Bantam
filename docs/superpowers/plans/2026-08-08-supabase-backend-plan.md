@@ -798,6 +798,7 @@ interface FormationCanvasProps {
 export function FormationCanvas({ players, selectedId, armed, onAddPlayer, onSelectPlayer, onMovePlayer }: FormationCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const dragRef = useRef<{ id: string; moved: boolean } | null>(null)
+  const suppressNextClick = useRef(false)
 
   const pointFromEvent = (e: { clientX: number; clientY: number }) => {
     const svg = svgRef.current!
@@ -810,13 +811,18 @@ export function FormationCanvas({ players, selectedId, armed, onAddPlayer, onSel
   }
 
   const handleSvgClick = (e: ReactMouseEvent<SVGSVGElement>) => {
-    if (!armed || dragRef.current) return
+    if (suppressNextClick.current) {
+      suppressNextClick.current = false
+      return
+    }
+    if (!armed) return
     onAddPlayer(pointFromEvent(e))
   }
 
   const handleTokenMouseDown = (id: string) => (e: ReactMouseEvent) => {
     e.stopPropagation()
     dragRef.current = { id, moved: false }
+    suppressNextClick.current = true
   }
 
   const handleMouseMove = (e: ReactMouseEvent<SVGSVGElement>) => {
