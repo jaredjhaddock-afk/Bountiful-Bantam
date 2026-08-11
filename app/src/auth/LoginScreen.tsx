@@ -12,12 +12,12 @@ export function LoginScreen() {
     if (!email.trim()) return
     setSending(true)
     setError(null)
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error: otpError } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: { emailRedirectTo: window.location.origin },
     })
     setSending(false)
-    if (error) setError(error.message)
+    if (otpError) setError(otpError.message)
     else setSent(true)
   }
 

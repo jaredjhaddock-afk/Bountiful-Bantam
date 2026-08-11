@@ -13,9 +13,9 @@ export function JoinTeamScreen() {
     if (!code.trim()) return
     setJoining(true)
     setError(null)
-    const { error } = await supabase.rpc('join_team', { p_join_code: code.trim() })
+    const { error: joinError } = await supabase.rpc('join_team', { p_join_code: code.trim() })
     setJoining(false)
-    if (error) {
+    if (joinError) {
       setError('That code was not recognized. Double-check with your coach.')
       return
     }

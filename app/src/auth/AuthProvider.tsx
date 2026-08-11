@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabaseClient'
 
@@ -12,6 +12,7 @@ interface AuthContextValue {
   loading: boolean
   session: Session | null
   profile: Profile | null
+  profileError: boolean
   teamName: string | null
   refreshProfile: () => Promise<void>
   signOut: () => Promise<void>
@@ -19,10 +20,13 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-async function loadProfile(userId: string): Promise<Profile | null> {
+async function loadProfile(userId: string): Promise<{ profile: Profile | null; error: boolean }> {
   const { data, error } = await supabase.from('profiles').select('id, team_id, display_name').eq('id', userId).single()
-  if (error || !data) return null
-  return { id: data.id, teamId: data.team_id, displayName: data.display_name }
+  if (error) {
+    if (error.code === 'PGRST116') return { profile: null, error: false }
+    return { profile: null, error: true }
+  }
+  return { profile: { id: data.id, teamId: data.team_id, displayName: data.display_name }, error: false }
 }
 
 async function loadTeamName(teamId: string): Promise<string | null> {
@@ -35,17 +39,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [profileError, setProfileError] = useState(false)
   const [teamName, setTeamName] = useState<string | null>(null)
+  const latestRequestId = useRef(0)
 
   const applySession = useCallback(async (newSession: Session | null) => {
+    const requestId = ++latestRequestId.current
     setSession(newSession)
     if (!newSession) {
-      setProfile(null)
-      setTeamName(null)
+      if (requestId === latestRequestId.current) {
+        setProfile(null)
+        setProfileError(false)
+        setTeamName(null)
+      }
       return
     }
-    const p = await loadProfile(newSession.user.id)
+    const { profile: p, error: hadError } = await loadProfile(newSession.user.id)
+    if (requestId !== latestRequestId.current) return
     setProfile(p)
+    setProfileError(hadError)
     setTeamName(p?.teamId ? await loadTeamName(p.teamId) : null)
   }, [])
 
@@ -78,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ loading, session, profile, teamName, refreshProfile, signOut }}>
+    <AuthContext.Provider value={{ loading, session, profile, profileError, teamName, refreshProfile, signOut }}>
       {children}
     </AuthContext.Provider>
   )

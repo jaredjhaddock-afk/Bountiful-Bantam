@@ -39,12 +39,24 @@ function AuthenticatedApp() {
 }
 
 function Gate() {
-  const { loading, session, profile } = useAuth()
+  const { loading, session, profile, profileError } = useAuth()
 
   if (loading) {
     return <div className="flex h-full items-center justify-center bg-app-bg text-muted">Loading…</div>
   }
   if (!session) return <LoginScreen />
+  if (profileError) {
+    return (
+      <div className="flex h-full items-center justify-center bg-app-bg text-center text-muted">
+        <div>
+          <p className="mb-3">Couldn't load your profile. Check your connection and try again.</p>
+          <button onClick={() => window.location.reload()} className="rounded-standard bg-accent-teal px-4 py-2 text-sm font-bold text-white">
+            Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
   if (!profile?.teamId) return <JoinTeamScreen />
   return <AuthenticatedApp />
 }
