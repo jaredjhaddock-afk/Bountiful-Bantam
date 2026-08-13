@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AppShell } from '../components/layout/AppShell'
 import { VideoSourceModal } from '../components/source/VideoSourceModal'
 import { VideoPlayerPage } from '../components/player/VideoPlayerPage'
@@ -51,21 +51,31 @@ export function VideoReviewPage({ nav }: VideoReviewPageProps) {
     setMode('library')
   }
 
+  // Kept in sync with `activeClip` so handleClipStateChange can read the latest clip without
+  // depending on `activeClip`'s value (which would make the callback's identity change on every
+  // clip switch — see below).
+  const activeClipRef = useRef<Clip | null>(null)
+  useEffect(() => {
+    activeClipRef.current = activeClip
+  }, [activeClip])
+
   // Stable across re-renders (identity only changes if `updateClip` itself changes, which it
-  // never does after mount). Reads the latest clip via the functional setActiveClip form rather
-  // than closing over `activeClip` directly, so this can't turn into a fresh function on every
-  // render. That matters here: VideoPlayerPage's persistence effect lists `onStateChange` as a
-  // dependency, so a fresh identity each render would re-fire the effect, call updateClip, change
-  // the clips array, re-render this component, and produce a fresh identity again — an infinite
-  // loop of Supabase writes every time a saved clip is open.
+  // never does after mount). That matters here: VideoPlayerPage's persistence effect lists
+  // `onStateChange` as a dependency, so a fresh identity each render would re-fire the effect,
+  // call updateClip, change the clips array, re-render this component, and produce a fresh
+  // identity again — an infinite loop of Supabase writes every time a saved clip is open.
+  //
+  // `setActiveClip` and `updateClip` are called as separate top-level statements rather than
+  // nesting the `updateClip` (Supabase) call inside the `setActiveClip` updater function — React
+  // StrictMode double-invokes updater functions in dev to surface exactly this kind of impurity,
+  // which would have fired the Supabase write twice per real state change.
   const handleClipStateChange = useCallback(
     (state: { inPoint: number; outPoint: number; drawingStrokes: Stroke[] }) => {
-      setActiveClip((current) => {
-        if (!current) return current
-        const updated = { ...current, ...state }
-        updateClip(updated)
-        return updated
-      })
+      const current = activeClipRef.current
+      if (!current) return
+      const updated = { ...current, ...state }
+      setActiveClip(updated)
+      updateClip(updated)
     },
     [updateClip],
   )
