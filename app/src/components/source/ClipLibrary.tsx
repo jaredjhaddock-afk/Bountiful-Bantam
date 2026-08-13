@@ -14,7 +14,8 @@ export function ClipLibrary({ onOpenClip, onAddNew }: ClipLibraryProps) {
       <div className="flex flex-wrap gap-4">
         <button
           onClick={onAddNew}
-          className="flex h-32 w-56 flex-col items-center justify-center gap-2 rounded-standard border border-dashed border-white/15 text-muted hover:border-accent-teal hover:text-text"
+          disabled={loading}
+          className="flex h-32 w-56 flex-col items-center justify-center gap-2 rounded-standard border border-dashed border-white/15 text-muted hover:border-accent-teal hover:text-text disabled:cursor-not-allowed disabled:opacity-40"
         >
           <PlusIcon width={24} height={24} />
           <span className="text-xs font-bold uppercase">Add video</span>

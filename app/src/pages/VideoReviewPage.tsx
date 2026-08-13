@@ -45,12 +45,6 @@ export function VideoReviewPage({ nav }: VideoReviewPageProps) {
     setMode('player')
   }
 
-  const handleBack = () => {
-    setSource(null)
-    setActiveClip(null)
-    setMode('library')
-  }
-
   // Kept in sync with `activeClip` so handleClipStateChange can read the latest clip without
   // depending on `activeClip`'s value (which would make the callback's identity change on every
   // clip switch — see below).
@@ -59,14 +53,46 @@ export function VideoReviewPage({ nav }: VideoReviewPageProps) {
     activeClipRef.current = activeClip
   }, [activeClip])
 
+  // Trim-handle drags and drawing strokes fire onStateChange continuously (on every pointer
+  // move), which would otherwise mean a real Supabase `update` per pointer-move — dozens of
+  // concurrent, unordered requests for one gesture, risking a stale intermediate state landing
+  // last. So the actual persistence is debounced: the pending clip is stashed in
+  // `pendingUpdateRef` and only written after edits pause for ~600ms. `activeClip` itself (and
+  // the ref that mirrors it) still update immediately so the UI stays responsive and any
+  // subsequent debounced write is computed from the latest state.
+  const persistTimeoutRef = useRef<number | null>(null)
+  const pendingUpdateRef = useRef<Clip | null>(null)
+
+  const flushPendingClipUpdate = useCallback(() => {
+    if (persistTimeoutRef.current !== null) {
+      window.clearTimeout(persistTimeoutRef.current)
+      persistTimeoutRef.current = null
+    }
+    if (pendingUpdateRef.current) {
+      updateClip(pendingUpdateRef.current)
+      pendingUpdateRef.current = null
+    }
+  }, [updateClip])
+
+  // Flush on unmount too (e.g. the user switches to the Playbook tab mid-edit), not just on
+  // explicit back-navigation.
+  useEffect(() => flushPendingClipUpdate, [flushPendingClipUpdate])
+
+  const handleBack = () => {
+    flushPendingClipUpdate()
+    setSource(null)
+    setActiveClip(null)
+    setMode('library')
+  }
+
   // Stable across re-renders (identity only changes if `updateClip` itself changes, which it
   // never does after mount). That matters here: VideoPlayerPage's persistence effect lists
   // `onStateChange` as a dependency, so a fresh identity each render would re-fire the effect,
   // call updateClip, change the clips array, re-render this component, and produce a fresh
   // identity again — an infinite loop of Supabase writes every time a saved clip is open.
   //
-  // `setActiveClip` and `updateClip` are called as separate top-level statements rather than
-  // nesting the `updateClip` (Supabase) call inside the `setActiveClip` updater function — React
+  // `setActiveClip` and the debounced `updateClip` are called as separate top-level statements
+  // rather than nesting the Supabase call inside the `setActiveClip` updater function — React
   // StrictMode double-invokes updater functions in dev to surface exactly this kind of impurity,
   // which would have fired the Supabase write twice per real state change.
   const handleClipStateChange = useCallback(
@@ -75,7 +101,15 @@ export function VideoReviewPage({ nav }: VideoReviewPageProps) {
       if (!current) return
       const updated = { ...current, ...state }
       setActiveClip(updated)
-      updateClip(updated)
+      pendingUpdateRef.current = updated
+      if (persistTimeoutRef.current !== null) window.clearTimeout(persistTimeoutRef.current)
+      persistTimeoutRef.current = window.setTimeout(() => {
+        persistTimeoutRef.current = null
+        if (pendingUpdateRef.current) {
+          updateClip(pendingUpdateRef.current)
+          pendingUpdateRef.current = null
+        }
+      }, 600)
     },
     [updateClip],
   )
