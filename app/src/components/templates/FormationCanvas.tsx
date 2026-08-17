@@ -78,7 +78,10 @@ export function FormationCanvas({ players, selectedId, armed, onAddPlayer, onSel
         return (
           <g key={p.id} transform={`translate(${p.x} ${p.y})`} onMouseDown={handleTokenMouseDown(p.id)} style={{ cursor: 'grab' }}>
             {isLineman ? (
-              <rect x={-1.6} y={-1.6} width={3.2} height={3.2} fill="none" stroke={color} strokeWidth={0.3} />
+              // fill must be painted-but-transparent (not `none`) so the whole square is
+              // hit-testable for select/drag, not just its stroke outline — matching the
+              // circle tokens below, which already use the same trick.
+              <rect x={-1.6} y={-1.6} width={3.2} height={3.2} fill="rgba(0,0,0,0)" stroke={color} strokeWidth={0.3} />
             ) : (
               <circle r={1.8} fill="rgba(0,0,0,0)" stroke={color} strokeWidth={0.3} />
             )}
