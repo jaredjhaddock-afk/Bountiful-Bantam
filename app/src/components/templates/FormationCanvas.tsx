@@ -1,8 +1,7 @@
 import { useRef, type MouseEvent as ReactMouseEvent } from 'react'
-import type { Formation } from '../../types/play'
+import type { FillStyle, Formation } from '../../types/play'
 import { ROLE_COLOR } from '../../lib/roleColors'
-
-const YARD_LINES = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
+import { FieldBackground } from './FieldBackground'
 
 type DraftPlayer = Formation['players'][number]
 
@@ -13,6 +12,31 @@ interface FormationCanvasProps {
   onAddPlayer: (point: { x: number; y: number }) => void
   onSelectPlayer: (id: string) => void
   onMovePlayer: (id: string, point: { x: number; y: number }) => void
+}
+
+const TOKEN_RADIUS = 1.8
+
+/** A rect (in the token's local -r..r coordinate space) that, combined with clip-path on a
+ *  fully-colored shape, produces each fill-style variant. `null` means "outline" — no fill. */
+function fillClipRect(style: FillStyle, r: number): { x: number; y: number; width: number; height: number } | null {
+  switch (style) {
+    case 'solid':
+      return { x: -r, y: -r, width: 2 * r, height: 2 * r }
+    case 'half-left':
+      return { x: -r, y: -r, width: r, height: 2 * r }
+    case 'half-right':
+      return { x: 0, y: -r, width: r, height: 2 * r }
+    case 'half-top':
+      return { x: -r, y: -r, width: 2 * r, height: r }
+    case 'half-bottom':
+      return { x: -r, y: 0, width: 2 * r, height: r }
+    case 'quarter-left':
+      return { x: -r, y: -r, width: r / 2, height: 2 * r }
+    case 'quarter-right':
+      return { x: r / 2, y: -r, width: r / 2, height: 2 * r }
+    case 'outline':
+      return null
+  }
 }
 
 export function FormationCanvas({ players, selectedId, armed, onAddPlayer, onSelectPlayer, onMovePlayer }: FormationCanvasProps) {
@@ -67,23 +91,51 @@ export function FormationCanvas({ players, selectedId, armed, onAddPlayer, onSel
       onMouseLeave={endDrag}
       style={{ width: '100%', height: '100%', background: '#161a1d', cursor: armed ? 'copy' : 'default' }}
     >
-      {YARD_LINES.map((y) => (
-        <line key={y} x1={0} y1={y} x2={100} y2={y} stroke="#3a434d" strokeWidth={0.15} />
-      ))}
-      <line x1={0} y1={30} x2={100} y2={30} stroke="#5a6470" strokeWidth={0.25} />
+      <FieldBackground />
 
       {players.map((p) => {
-        const color = ROLE_COLOR[p.role]
+        const color = p.color ?? ROLE_COLOR[p.role]
+        const fillStyle = p.fillStyle ?? 'outline'
         const isLineman = p.role === 'lineman'
+        // Lineman tokens are squares with half-extent 1.6 (from -1.6..1.6); skill/QB tokens
+        // are circles with radius TOKEN_RADIUS (1.8). The decorative fill clip must be sized
+        // to the shape's *actual* half-extent so e.g. quarter-left fills exactly 1/4 of it.
+        const halfExtent = isLineman ? 1.6 : TOKEN_RADIUS
+        const clip = fillClipRect(fillStyle, halfExtent)
+        const clipId = `fill-clip-${p.id}`
         return (
           <g key={p.id} transform={`translate(${p.x} ${p.y})`} onMouseDown={handleTokenMouseDown(p.id)} style={{ cursor: 'grab' }}>
+            {clip && (
+              <clipPath id={clipId}>
+                <rect x={clip.x} y={clip.y} width={clip.width} height={clip.height} />
+              </clipPath>
+            )}
             {isLineman ? (
-              // fill must be painted-but-transparent (not `none`) so the whole square is
-              // hit-testable for select/drag, not just its stroke outline — matching the
-              // circle tokens below, which already use the same trick.
-              <rect x={-1.6} y={-1.6} width={3.2} height={3.2} fill="rgba(0,0,0,0)" stroke={color} strokeWidth={0.3} />
+              <>
+                {/* Hit-test target: full, unclipped shape. Always the pointer-event target
+                    and the outline stroke — never gets a clip-path, since SVG clip-path
+                    restricts hit-testing to the clipped region, not just the paint. */}
+                <rect x={-1.6} y={-1.6} width={3.2} height={3.2} fill="rgba(0,0,0,0)" stroke={color} strokeWidth={0.3} />
+                {/* Decorative fill layer: purely visual, ignored for hit-testing. */}
+                {clip && (
+                  <rect
+                    x={-1.6}
+                    y={-1.6}
+                    width={3.2}
+                    height={3.2}
+                    fill={color}
+                    clipPath={`url(#${clipId})`}
+                    pointerEvents="none"
+                  />
+                )}
+              </>
             ) : (
-              <circle r={1.8} fill="rgba(0,0,0,0)" stroke={color} strokeWidth={0.3} />
+              <>
+                <circle r={TOKEN_RADIUS} fill="rgba(0,0,0,0)" stroke={color} strokeWidth={0.3} />
+                {clip && (
+                  <circle r={TOKEN_RADIUS} fill={color} clipPath={`url(#${clipId})`} pointerEvents="none" />
+                )}
+              </>
             )}
             {p.id === selectedId && <circle r={2.4} fill="none" stroke="#ffffff" strokeWidth={0.25} />}
             <text textAnchor="middle" dominantBaseline="central" fontSize={1.5} fill={color} fontFamily="Barlow Condensed, sans-serif" fontWeight={700}>
