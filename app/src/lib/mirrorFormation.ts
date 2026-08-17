@@ -14,5 +14,9 @@ export function mirrorFormation(players: Formation['players'], fieldWidth: numbe
   const linemen = flipped.filter((p) => p.role === 'lineman').sort((a, b) => a.x - b.x)
   const relabeledLinemen = new Map(linemen.map((p, i) => [p.id, LINEMAN_LABELS[i]]))
 
-  return flipped.map((p) => (p.role === 'lineman' ? { ...p, label: relabeledLinemen.get(p.id)! } : p))
+  // Falls back to the token's pre-mirror label if there are more than 5 linemen (LINEMAN_LABELS
+  // runs out) or a duplicate id collapses the map — degrades gracefully instead of silently
+  // producing an undefined label, since a formation could reach this in a malformed state from
+  // some other editing path.
+  return flipped.map((p) => (p.role === 'lineman' ? { ...p, label: relabeledLinemen.get(p.id) ?? p.label } : p))
 }
