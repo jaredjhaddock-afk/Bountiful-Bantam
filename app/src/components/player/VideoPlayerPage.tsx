@@ -11,9 +11,12 @@ interface VideoPlayerPageProps {
   initialTrim?: { inPoint: number; outPoint: number }
   initialStrokes?: Stroke[]
   onStateChange?: (state: { inPoint: number; outPoint: number; drawingStrokes: Stroke[] }) => void
+  onPrevClip?: () => void
+  onNextClip?: () => void
 }
 
-export function VideoPlayerPage({ source, initialTrim, initialStrokes, onStateChange }: VideoPlayerPageProps) {
+export function VideoPlayerPage({ source, initialTrim, initialStrokes, onStateChange, onPrevClip, onNextClip }: VideoPlayerPageProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
   const controllerRef = useRef<MediaController>(null)
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
@@ -40,10 +43,30 @@ export function VideoPlayerPage({ source, initialTrim, initialStrokes, onStateCh
   const fastFwd = useHoldScrub({ controller: controllerRef.current, direction: 1, speed: 4, bounds, onTick: setCurrentTime })
   const slowFwd = useHoldScrub({ controller: controllerRef.current, direction: 1, speed: 0.4, bounds, onTick: setCurrentTime })
 
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     if (playing) controllerRef.current?.pause()
     else controllerRef.current?.play()
-  }
+  }, [playing])
+
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) document.exitFullscreen()
+    else containerRef.current?.requestFullscreen()
+  }, [])
+
+  // Hudl remote's Tag button cycles between marking the in-point and the out-point (then
+  // enabling loop), rather than needing two separate buttons like the on-screen In/Out controls.
+  const [tagStage, setTagStage] = useState<'in' | 'out'>('in')
+  const handleTag = useCallback(() => {
+    if (tagStage === 'in') {
+      setInPoint(currentTime)
+      setOutPoint(duration)
+      setTagStage('out')
+    } else {
+      setOutPoint(currentTime)
+      setLooping(true)
+      setTagStage('in')
+    }
+  }, [tagStage, currentTime, duration])
 
   const loopingBackRef = useRef(false)
 
@@ -73,8 +96,61 @@ export function VideoPlayerPage({ source, initialTrim, initialStrokes, onStateCh
     onStateChange?.({ inPoint, outPoint, drawingStrokes: strokes })
   }, [inPoint, outPoint, strokes, onStateChange])
 
+  // Hudl remote support. Physically the remote is a Bluetooth HID keypad: each button sends
+  // Ctrl+Shift+<digit> (confirmed by capturing raw KeyboardEvents), with a real keydown/keyup
+  // pair per press (OS auto-repeats keydown while held, so `repeat` is used to fire hold-start
+  // exactly once). Digit-to-button mapping: 1=Full 2=Prev 3=Next 4=Rev 5=Slow 6=Rew 7=FF 8=Tag
+  // 9=Play. Rev/Slow/Rew/FF resume normal forward playback on release (not pause), matching how
+  // the physical remote's hold buttons behave, unlike the on-screen hold buttons which pause.
+  useEffect(() => {
+    const holdActions: Record<string, ReturnType<typeof useHoldScrub>> = {
+      Digit4: slowRev,
+      Digit5: slowFwd,
+      Digit6: fastRev,
+      Digit7: fastFwd,
+    }
+    const tapActions: Record<string, (() => void) | undefined> = {
+      Digit1: toggleFullscreen,
+      Digit2: onPrevClip,
+      Digit3: onNextClip,
+      Digit8: handleTag,
+      Digit9: togglePlay,
+    }
+
+    const isEditableTarget = (target: EventTarget | null) => {
+      const el = target as HTMLElement | null
+      return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
+    }
+    const isRemoteChord = (e: KeyboardEvent) => e.ctrlKey && e.shiftKey && !e.metaKey && !e.altKey
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isRemoteChord(e) || isEditableTarget(e.target)) return
+      const hold = holdActions[e.code]
+      const tap = tapActions[e.code]
+      if (!hold && !tap) return
+      e.preventDefault()
+      if (e.repeat) return
+      if (hold) hold.start()
+      else tap?.()
+    }
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const hold = holdActions[e.code]
+      if (!hold) return
+      e.preventDefault()
+      hold.stop('play')
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [slowRev, slowFwd, fastRev, fastFwd, toggleFullscreen, onPrevClip, onNextClip, handleTag, togglePlay])
+
   return (
-    <div className="relative flex h-full flex-col">
+    <div ref={containerRef} className="relative flex h-full flex-col">
       <div className="relative flex-1 bg-black">
         <VideoStage
           ref={controllerRef}

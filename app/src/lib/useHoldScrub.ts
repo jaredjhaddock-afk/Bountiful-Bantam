@@ -11,17 +11,23 @@ interface HoldScrubOptions {
   onTick?: (time: number) => void
 }
 
-/** Press-and-hold scrub: while held, repeatedly seeks by direction*speed each tick; releases pause. */
+/** Press-and-hold scrub: while held, repeatedly seeks by direction*speed each tick; releases pause
+ *  by default, or resume normal-speed forward playback when `stop('play')` is called explicitly
+ *  (used by remote-control hold buttons, which resume play on release instead of pausing). */
 export function useHoldScrub({ controller, direction, speed, bounds, onTick }: HoldScrubOptions) {
   const intervalRef = useRef<number | null>(null)
 
-  const stop = useCallback(() => {
-    if (intervalRef.current != null) {
-      window.clearInterval(intervalRef.current)
-      intervalRef.current = null
-    }
-    controller?.pause()
-  }, [controller])
+  const stop = useCallback(
+    (releaseAction: 'pause' | 'play' = 'pause') => {
+      if (intervalRef.current != null) {
+        window.clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+      if (releaseAction === 'play') controller?.play()
+      else controller?.pause()
+    },
+    [controller],
+  )
 
   const start = useCallback(() => {
     if (!controller || intervalRef.current != null) return
@@ -51,9 +57,11 @@ export function useHoldScrub({ controller, direction, speed, bounds, onTick }: H
 
   return {
     onMouseDown: start,
-    onMouseUp: stop,
-    onMouseLeave: stop,
+    onMouseUp: () => stop(),
+    onMouseLeave: () => stop(),
     onTouchStart: start,
-    onTouchEnd: stop,
+    onTouchEnd: () => stop(),
+    start,
+    stop,
   }
 }

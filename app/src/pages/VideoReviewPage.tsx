@@ -18,7 +18,7 @@ function clipToSource(clip: Clip): VideoSource {
 type Mode = 'library' | 'add' | 'player'
 
 export function VideoReviewPage({ nav }: VideoReviewPageProps) {
-  const { createClip, updateClip } = useClips()
+  const { clips, createClip, updateClip } = useClips()
   const [mode, setMode] = useState<Mode>('library')
   const [source, setSource] = useState<VideoSource | null>(null)
   const [activeClip, setActiveClip] = useState<Clip | null>(null)
@@ -40,6 +40,7 @@ export function VideoReviewPage({ nav }: VideoReviewPageProps) {
   }
 
   const handleOpenClip = (clip: Clip) => {
+    flushPendingClipUpdate()
     setActiveClip(clip)
     setSource(clipToSource(clip))
     setMode('player')
@@ -85,6 +86,22 @@ export function VideoReviewPage({ nav }: VideoReviewPageProps) {
     setMode('library')
   }
 
+  // Hudl remote's Prev/Next buttons step through the saved clip library in order; a no-op at
+  // the ends of the list and while playing an unsaved local file (activeClip is null then).
+  const handlePrevClip = useCallback(() => {
+    if (!activeClip) return
+    const idx = clips.findIndex((c) => c.id === activeClip.id)
+    if (idx <= 0) return
+    handleOpenClip(clips[idx - 1])
+  }, [clips, activeClip])
+
+  const handleNextClip = useCallback(() => {
+    if (!activeClip) return
+    const idx = clips.findIndex((c) => c.id === activeClip.id)
+    if (idx === -1 || idx >= clips.length - 1) return
+    handleOpenClip(clips[idx + 1])
+  }, [clips, activeClip])
+
   // Stable across re-renders (identity only changes if `updateClip` itself changes, which it
   // never does after mount). That matters here: VideoPlayerPage's persistence effect lists
   // `onStateChange` as a dependency, so a fresh identity each render would re-fire the effect,
@@ -120,10 +137,16 @@ export function VideoReviewPage({ nav }: VideoReviewPageProps) {
       {mode === 'add' && <VideoSourceModal onSelect={handleNewSource} />}
       {mode === 'player' && source && (
         <VideoPlayerPage
+          // Keyed on the clip so Prev/Next (which stay in 'player' mode and just swap the
+          // clip/source) remount the player fresh instead of carrying over the previous clip's
+          // in/out points and drawing strokes.
+          key={activeClip?.id ?? 'local-file'}
           source={source}
           initialTrim={activeClip?.inPoint != null && activeClip?.outPoint != null ? { inPoint: activeClip.inPoint, outPoint: activeClip.outPoint } : undefined}
           initialStrokes={activeClip?.drawingStrokes}
           onStateChange={activeClip ? handleClipStateChange : undefined}
+          onPrevClip={handlePrevClip}
+          onNextClip={handleNextClip}
         />
       )}
     </AppShell>
