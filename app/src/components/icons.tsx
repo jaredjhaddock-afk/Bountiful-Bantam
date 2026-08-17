@@ -233,6 +233,13 @@ export const TrashIcon = (p: IconProps) => (
     <path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13" />
   </svg>
 )
+export const MirrorIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M12 3v18" />
+    <path d="M7 8l-3 4 3 4" />
+    <path d="M17 8l3 4-3 4" />
+  </svg>
+)
 export const UploadIcon = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M12 16V4M7 9l5-5 5 5" />
