@@ -1,12 +1,5 @@
 import type { PlayerToken, RouteStyle } from '../../types/play'
-
-const ROLE_COLOR: Record<PlayerToken['role'], string> = {
-  qb: '#900203',
-  skill: '#00746b',
-  lineman: '#4d4d4d',
-  defense: '#e50101',
-  specialTeams: '#00746b',
-}
+import { ROLE_COLOR } from '../../lib/roleColors'
 
 function pathFor(points: { x: number; y: number }[], style: RouteStyle | undefined) {
   if (points.length === 0) return ''

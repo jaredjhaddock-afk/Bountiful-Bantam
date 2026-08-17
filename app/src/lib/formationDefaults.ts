@@ -1,4 +1,5 @@
 import type { Formation, PlayerRole } from '../types/play'
+import { ROLE_COLOR } from './roleColors'
 
 /** The only skill-position labels offered in the formation editor's rename flow. */
 export const SKILL_POSITION_LABELS = ['X', 'F', 'Y', 'Z', 'H'] as const
@@ -6,16 +7,8 @@ export const SKILL_POSITION_LABELS = ['X', 'F', 'Y', 'Z', 'H'] as const
 /** The 5 offensive line labels, always read left-to-right in this order — see mirrorFormation.ts. */
 export const LINEMAN_LABELS = ['LT', 'LG', 'C', 'RG', 'RT'] as const
 
-const DEFAULT_COLOR: Record<PlayerRole, string> = {
-  qb: '#900203',
-  skill: '#00746b',
-  lineman: '#4d4d4d',
-  defense: '#e50101',
-  specialTeams: '#00746b',
-}
-
 function token(id: string, label: string, role: PlayerRole, x: number, y: number): Formation['players'][number] {
-  return { id, label, role, x, y, color: DEFAULT_COLOR[role], fillStyle: 'outline' }
+  return { id, label, role, x, y, color: ROLE_COLOR[role], fillStyle: 'outline' }
 }
 
 /**

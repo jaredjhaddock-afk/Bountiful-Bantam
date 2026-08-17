@@ -1,15 +1,8 @@
 import { useRef, type MouseEvent as ReactMouseEvent } from 'react'
 import type { Formation } from '../../types/play'
+import { ROLE_COLOR } from '../../lib/roleColors'
 
 const YARD_LINES = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
-
-const ROLE_COLOR: Record<string, string> = {
-  qb: '#900203',
-  skill: '#00746b',
-  lineman: '#4d4d4d',
-  defense: '#e50101',
-  specialTeams: '#00746b',
-}
 
 type DraftPlayer = Formation['players'][number]
 

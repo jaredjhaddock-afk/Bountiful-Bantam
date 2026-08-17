@@ -1,12 +1,5 @@
 import type { PlayerToken as PlayerTokenT } from '../../types/play'
-
-const ROLE_COLOR: Record<PlayerTokenT['role'], string> = {
-  qb: '#900203',
-  skill: '#00746b',
-  lineman: '#4d4d4d',
-  defense: '#e50101',
-  specialTeams: '#00746b',
-}
+import { ROLE_COLOR } from '../../lib/roleColors'
 
 interface PlayerTokenProps {
   player: PlayerTokenT
