@@ -1,13 +1,18 @@
 import { useState } from 'react'
-import type { Formation, PlayerRole, Unit } from '../../types/play'
+import type { FillStyle, Formation, PlayerRole, Unit } from '../../types/play'
 import { usePlaybook } from '../../state/playbookStore'
+import { createDefaultOffensePlayers } from '../../lib/formationDefaults'
+import { mirrorFormation } from '../../lib/mirrorFormation'
 import { AppShell } from '../layout/AppShell'
-import { TrashIcon } from '../icons'
+import { TrashIcon, MirrorIcon } from '../icons'
 import { FormationCanvas } from './FormationCanvas'
+import { ColorLabelPanel } from './ColorLabelPanel'
+import { MirrorNameModal } from './MirrorNameModal'
 
 interface FormationEditorViewProps {
   unit: Unit
   nav?: React.ReactNode
+  formationId?: string
   onBack: () => void
 }
 
@@ -21,16 +26,26 @@ const ROLE_OPTIONS: Record<Unit, { role: PlayerRole; label: string; prefix: stri
   specialTeams: [{ role: 'specialTeams', label: 'Special Teams', prefix: 'ST' }],
 }
 
-export function FormationEditorView({ unit, nav, onBack }: FormationEditorViewProps) {
-  const { createFormation } = usePlaybook()
-  const [name, setName] = useState('New Formation')
-  const [players, setPlayers] = useState<Formation['players']>([])
+const FIELD_WIDTH = 100
+
+export function FormationEditorView({ unit, nav, formationId, onBack }: FormationEditorViewProps) {
+  const { createFormation, updateFormation, getFormation } = usePlaybook()
+  const existing = formationId ? getFormation(formationId) : undefined
+  const isOffensePrePopulated = unit === 'offense'
+
+  const [name, setName] = useState(existing?.name ?? 'New Formation')
+  const [players, setPlayers] = useState<Formation['players']>(
+    existing?.players ?? (isOffensePrePopulated ? createDefaultOffensePlayers() : []),
+  )
   const [armedRole, setArmedRole] = useState<PlayerRole | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [labelError, setLabelError] = useState<string | null>(null)
+  const [mirroring, setMirroring] = useState(false)
 
   const roleOptions = ROLE_OPTIONS[unit]
+  const selectedPlayer = players.find((p) => p.id === selectedId) ?? null
 
   const addPlayer = (point: { x: number; y: number }) => {
     if (!armedRole) return
@@ -49,12 +64,42 @@ export function FormationEditorView({ unit, nav, onBack }: FormationEditorViewPr
     setSelectedId(null)
   }
 
+  const renameSelected = (newLabel: string) => {
+    if (!selectedId) return
+    const trimmed = newLabel.trim()
+    if (!trimmed) {
+      setLabelError(null)
+      return
+    }
+    const duplicate = players.some((p) => p.id !== selectedId && p.label.trim().toLowerCase() === trimmed.toLowerCase())
+    if (duplicate) {
+      setLabelError(`"${trimmed}" is already used by another player.`)
+      return
+    }
+    setLabelError(null)
+    setPlayers((prev) => prev.map((p) => (p.id === selectedId ? { ...p, label: trimmed } : p)))
+  }
+
+  const recolorSelected = (color: string) => {
+    if (!selectedId) return
+    setPlayers((prev) => prev.map((p) => (p.id === selectedId ? { ...p, color } : p)))
+  }
+
+  const restyleSelected = (fillStyle: FillStyle) => {
+    if (!selectedId) return
+    setPlayers((prev) => prev.map((p) => (p.id === selectedId ? { ...p, fillStyle } : p)))
+  }
+
   const handleSave = async () => {
     if (!name.trim() || players.length === 0) return
     setSaving(true)
     setError(null)
     try {
-      await createFormation({ name: name.trim(), unit, players })
+      if (existing) {
+        await updateFormation({ ...existing, name: name.trim(), players })
+      } else {
+        await createFormation({ name: name.trim(), unit, players })
+      }
       onBack()
     } catch {
       setError('Could not save this formation. Try again.')
@@ -63,8 +108,22 @@ export function FormationEditorView({ unit, nav, onBack }: FormationEditorViewPr
     }
   }
 
+  const handleMirrorConfirm = async (mirroredName: string) => {
+    setMirroring(false)
+    setSaving(true)
+    setError(null)
+    try {
+      await createFormation({ name: mirroredName, unit, players: mirrorFormation(players, FIELD_WIDTH) })
+      onBack()
+    } catch {
+      setError('Could not save the mirrored formation. Try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
-    <AppShell title="New Formation" subtitle={unit} onBack={onBack} nav={nav}>
+    <AppShell title={name} subtitle={unit} onBack={onBack} nav={nav}>
       <div className="flex items-center gap-3 border-b border-white/10 bg-panel px-4 py-3">
         <input
           value={name}
@@ -72,6 +131,15 @@ export function FormationEditorView({ unit, nav, onBack }: FormationEditorViewPr
           className="flex-1 rounded-standard bg-app-bg px-3 py-2 text-sm outline-none"
         />
         {error && <span className="text-xs text-alert-red">{error}</span>}
+        {existing && (
+          <button
+            onClick={() => setMirroring(true)}
+            disabled={saving}
+            className="flex items-center gap-1.5 rounded-standard bg-app-bg px-3 py-2 text-xs font-bold uppercase text-muted hover:text-text disabled:opacity-40"
+          >
+            <MirrorIcon width={16} height={16} /> Mirror
+          </button>
+        )}
         <button
           onClick={handleSave}
           disabled={saving || !name.trim() || players.length === 0}
@@ -80,28 +148,32 @@ export function FormationEditorView({ unit, nav, onBack }: FormationEditorViewPr
           {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
-      <div className="flex items-center justify-center gap-2 border-b border-white/10 bg-panel px-4 py-2">
-        {roleOptions.map((opt) => (
-          <button
-            key={opt.role}
-            onClick={() => {
-              setArmedRole(opt.role)
-              setSelectedId(null)
-            }}
-            className={`rounded-standard px-3 py-1.5 text-xs font-bold uppercase ${
-              armedRole === opt.role ? 'bg-accent-teal text-white' : 'bg-app-bg text-muted hover:text-text'
-            }`}
-          >
-            + {opt.label}
-          </button>
-        ))}
-        {selectedId && (
-          <button onClick={deleteSelected} className="ml-2 rounded-standard p-1.5 text-alert-red hover:bg-hover" aria-label="Delete player">
-            <TrashIcon width={16} height={16} />
-          </button>
-        )}
-      </div>
-      <div className="relative" style={{ height: 'calc(100% - 116px)' }}>
+
+      {!isOffensePrePopulated && (
+        <div className="flex items-center justify-center gap-2 border-b border-white/10 bg-panel px-4 py-2">
+          {roleOptions.map((opt) => (
+            <button
+              key={opt.role}
+              onClick={() => {
+                setArmedRole(opt.role)
+                setSelectedId(null)
+              }}
+              className={`rounded-standard px-3 py-1.5 text-xs font-bold uppercase ${
+                armedRole === opt.role ? 'bg-accent-teal text-white' : 'bg-app-bg text-muted hover:text-text'
+              }`}
+            >
+              + {opt.label}
+            </button>
+          ))}
+          {selectedId && (
+            <button onClick={deleteSelected} className="ml-2 rounded-standard p-1.5 text-alert-red hover:bg-hover" aria-label="Delete player">
+              <TrashIcon width={16} height={16} />
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="relative" style={{ height: `calc(100% - ${isOffensePrePopulated ? 60 : 116}px)` }}>
         <FormationCanvas
           players={players}
           selectedId={selectedId}
@@ -110,9 +182,30 @@ export function FormationEditorView({ unit, nav, onBack }: FormationEditorViewPr
           onSelectPlayer={(id) => {
             setSelectedId(id)
             setArmedRole(null)
+            setLabelError(null)
           }}
           onMovePlayer={movePlayer}
         />
+        {isOffensePrePopulated && selectedPlayer && (
+          <ColorLabelPanel
+            key={selectedPlayer.id}
+            label={selectedPlayer.label}
+            color={selectedPlayer.color ?? '#00746b'}
+            fillStyle={selectedPlayer.fillStyle ?? 'outline'}
+            error={labelError}
+            onRename={renameSelected}
+            onColorChange={recolorSelected}
+            onFillStyleChange={restyleSelected}
+            onClose={() => setSelectedId(null)}
+          />
+        )}
+        {mirroring && (
+          <MirrorNameModal
+            defaultName={`${name} (Mirrored)`}
+            onConfirm={handleMirrorConfirm}
+            onCancel={() => setMirroring(false)}
+          />
+        )}
       </div>
     </AppShell>
   )

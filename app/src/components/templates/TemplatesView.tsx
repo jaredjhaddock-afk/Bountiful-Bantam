@@ -19,11 +19,18 @@ const UNIT_LABEL: Record<Unit, string> = { offense: 'Offensive', defense: 'Defen
 export function TemplatesView({ unit, nav, onBack }: TemplatesViewProps) {
   const { categoriesForUnit } = usePlaybook()
   const [tab, setTab] = useState<'formations' | 'categories' | 'routeTree'>('formations')
-  const [editingFormation, setEditingFormation] = useState(false)
+  const [editingFormationId, setEditingFormationId] = useState<string | 'new' | null>(null)
   const [addingCategory, setAddingCategory] = useState(false)
 
-  if (editingFormation) {
-    return <FormationEditorView unit={unit} nav={nav} onBack={() => setEditingFormation(false)} />
+  if (editingFormationId) {
+    return (
+      <FormationEditorView
+        unit={unit}
+        nav={nav}
+        formationId={editingFormationId === 'new' ? undefined : editingFormationId}
+        onBack={() => setEditingFormationId(null)}
+      />
+    )
   }
 
   return (
@@ -50,7 +57,9 @@ export function TemplatesView({ unit, nav, onBack }: TemplatesViewProps) {
           </button>
         )}
       </div>
-      {tab === 'formations' && <FormationsGallery unit={unit} onNewFormation={() => setEditingFormation(true)} />}
+      {tab === 'formations' && (
+        <FormationsGallery unit={unit} onNewFormation={() => setEditingFormationId('new')} onEditFormation={(id) => setEditingFormationId(id)} />
+      )}
       {tab === 'categories' && (
         <div className="p-6">
           <div className="mb-3 flex flex-wrap gap-2">

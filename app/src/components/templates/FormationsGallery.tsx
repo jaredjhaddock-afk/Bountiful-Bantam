@@ -5,9 +5,10 @@ import { FieldCanvas } from '../editor/FieldCanvas'
 interface FormationsGalleryProps {
   unit: Unit
   onNewFormation: () => void
+  onEditFormation: (formationId: string) => void
 }
 
-export function FormationsGallery({ unit, onNewFormation }: FormationsGalleryProps) {
+export function FormationsGallery({ unit, onNewFormation, onEditFormation }: FormationsGalleryProps) {
   const { formationsForUnit } = usePlaybook()
   const formations = formationsForUnit(unit)
 
@@ -20,12 +21,16 @@ export function FormationsGallery({ unit, onNewFormation }: FormationsGalleryPro
         + New Formation
       </button>
       {formations.map((f) => (
-        <div key={f.id} className="flex h-44 w-56 flex-col overflow-hidden rounded-standard border border-white/10 bg-app-bg">
+        <button
+          key={f.id}
+          onClick={() => onEditFormation(f.id)}
+          className="flex h-44 w-56 flex-col overflow-hidden rounded-standard border border-white/10 bg-app-bg text-left hover:border-accent-teal"
+        >
           <div className="flex-1" style={{ backgroundImage: 'radial-gradient(#2a333c 1px, transparent 1px)', backgroundSize: '6px 6px' }}>
             <FieldCanvas players={f.players.map((p) => ({ ...p, route: [] }))} readOnly />
           </div>
           <div className="px-2 pb-2 text-sm">{f.name}</div>
-        </div>
+        </button>
       ))}
     </div>
   )
