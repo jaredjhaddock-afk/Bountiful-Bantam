@@ -15,6 +15,7 @@ interface PlaybookContextValue {
   createPlay: (input: { name: string; unit: Unit; formationId: string; categoryId: string; positionNotes: Record<string, string> }) => Play
   updatePlay: (play: Play) => void
   createFormation: (input: { name: string; unit: Unit; players: Formation['players'] }) => Promise<Formation>
+  updateFormation: (formation: Formation) => Promise<void>
   createCategory: (input: { name: string; unit: Unit }) => Promise<Category>
   getFormation: (id: string) => Formation | undefined
 }
@@ -103,6 +104,12 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
     [teamId],
   )
 
+  const updateFormation: PlaybookContextValue['updateFormation'] = useCallback(async (formation: Formation) => {
+    const { error } = await supabase.from('formations').update({ name: formation.name, players: formation.players }).eq('id', formation.id)
+    if (error) throw error
+    setFormations((prev) => prev.map((f) => (f.id === formation.id ? formation : f)))
+  }, [])
+
   const createCategory: PlaybookContextValue['createCategory'] = useCallback(
     async ({ name, unit }) => {
       if (!teamId) throw new Error('No team')
@@ -127,10 +134,11 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
       createPlay,
       updatePlay,
       createFormation,
+      updateFormation,
       createCategory,
       getFormation,
     }),
-    [authTeamName, loading, formations, categories, plays, formationsForUnit, categoriesForUnit, createPlay, updatePlay, createFormation, createCategory, getFormation],
+    [authTeamName, loading, formations, categories, plays, formationsForUnit, categoriesForUnit, createPlay, updatePlay, createFormation, updateFormation, createCategory, getFormation],
   )
 
   return <PlaybookContext.Provider value={value}>{children}</PlaybookContext.Provider>
