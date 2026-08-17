@@ -2,6 +2,7 @@ export type Unit = 'offense' | 'defense' | 'specialTeams'
 export type PlayerRole = 'qb' | 'skill' | 'lineman' | 'defense' | 'specialTeams'
 export type RouteStyle = 'straight' | 'curve' | 'motion' | 'star'
 export type AnnotationKind = 'arrow' | 'football' | 'cone' | 'comment'
+export type FillStyle = 'solid' | 'outline' | 'half-left' | 'half-right' | 'half-top' | 'half-bottom' | 'quarter-left' | 'quarter-right'
 
 export interface RoutePoint {
   x: number
@@ -16,6 +17,8 @@ export interface PlayerToken {
   y: number
   route: RoutePoint[]
   routeStyle?: RouteStyle
+  color?: string
+  fillStyle?: FillStyle
 }
 
 export interface Annotation {
