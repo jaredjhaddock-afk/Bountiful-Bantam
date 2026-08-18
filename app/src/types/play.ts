@@ -34,6 +34,7 @@ export interface Formation {
   name: string
   unit: Unit
   players: Omit<PlayerToken, 'route' | 'routeStyle'>[]
+  sortOrder: number
 }
 
 export interface Category {
@@ -51,4 +52,6 @@ export interface Play {
   players: PlayerToken[]
   annotations: Annotation[]
   positionNotes: Record<string, string>
+  sortOrder: number
+  number: number
 }
