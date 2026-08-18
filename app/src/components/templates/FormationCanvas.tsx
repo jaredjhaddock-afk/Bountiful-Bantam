@@ -116,6 +116,7 @@ export function FormationCanvas({ players, selectedId, armed, onAddPlayer, onSel
         const halfExtent = isLineman ? 1.6 : TOKEN_RADIUS
         const clip = fillClipRect(fillStyle, halfExtent)
         const clipId = `fill-clip-${p.id}`
+        const labelColor = fillStyle === 'outline' ? color : '#ffffff'
         return (
           <g key={p.id} transform={`translate(${p.x} ${p.y})`} onMouseDown={handleTokenMouseDown(p.id)} style={{ cursor: 'grab' }}>
             {clip && (
@@ -151,7 +152,7 @@ export function FormationCanvas({ players, selectedId, armed, onAddPlayer, onSel
               </>
             )}
             {p.id === selectedId && <circle r={2.4} fill="none" stroke="#ffffff" strokeWidth={0.25} />}
-            <text textAnchor="middle" dominantBaseline="central" fontSize={1.5} fill={color} fontFamily="Barlow Condensed, sans-serif" fontWeight={700}>
+            <text textAnchor="middle" dominantBaseline="central" fontSize={1.5} fill={labelColor} fontFamily="Barlow Condensed, sans-serif" fontWeight={700}>
               {p.label}
             </text>
           </g>

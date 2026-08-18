@@ -47,10 +47,40 @@ function makeBuilder(result: { data: unknown; error: unknown }) {
   return builder
 }
 
+// The formations table needs richer behavior than the generic makeBuilder: the initial
+// `.select().order()` load must resolve to the full row list, while a later
+// `.update(...).eq(...).select().single()` call (from updateFormation) must resolve to just
+// the single updated row. Unlike makeBuilder, the two terminal methods (`order`/`single`)
+// each return a genuine Promise directly rather than making the whole builder thenable, so
+// there's no risk of an accidental double-await on a plain thenable object.
+function makeFormationsBuilder() {
+  let updatePayload: Record<string, unknown> | null = null
+  let eqId: string | null = null
+  const builder: Record<string, (...args: unknown[]) => unknown> = {
+    select: () => builder,
+    eq: (_col: unknown, val: unknown) => {
+      eqId = String(val)
+      return builder
+    },
+    insert: () => builder,
+    update: (payload: unknown) => {
+      updatePayload = payload as Record<string, unknown>
+      return builder
+    },
+    order: () => Promise.resolve({ data: FORMATION_ROWS, error: null }),
+    single: () => {
+      const original = FORMATION_ROWS.find((f) => f.id === eqId)
+      const data = original ? { ...original, ...updatePayload } : null
+      return Promise.resolve({ data, error: data ? null : new Error('Formation not found') })
+    },
+  }
+  return builder
+}
+
 vi.mock('../lib/supabaseClient', () => ({
   supabase: {
     from: (table: string) => {
-      if (table === 'formations') return makeBuilder({ data: FORMATION_ROWS, error: null })
+      if (table === 'formations') return makeFormationsBuilder()
       if (table === 'categories') return makeBuilder({ data: CATEGORY_ROWS, error: null })
       if (table === 'plays') return makeBuilder({ data: [], error: null })
       return makeBuilder({ data: [], error: null })
@@ -107,5 +137,26 @@ describe('playbookStore', () => {
       result.current.updatePlay({ ...play, name: 'Renamed' })
     })
     expect(result.current.plays.find((p) => p.id === playId)!.name).toBe('Renamed')
+  })
+
+  it('updateFormation replaces the formation with matching id and calls update, not insert', async () => {
+    const { result } = renderHook(() => usePlaybook(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    const original = result.current.formations.find((f) => f.id === 'i-right')!
+    await act(async () => {
+      await result.current.updateFormation({ ...original, name: 'I Right (Edited)' })
+    })
+    expect(result.current.formations.find((f) => f.id === 'i-right')!.name).toBe('I Right (Edited)')
+  })
+
+  it('updateFormation throws when Supabase reports no matching row (e.g. blocked by RLS)', async () => {
+    const { result } = renderHook(() => usePlaybook(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    const original = result.current.formations.find((f) => f.id === 'i-right')!
+    await expect(
+      act(async () => {
+        await result.current.updateFormation({ ...original, id: 'does-not-exist' })
+      }),
+    ).rejects.toThrow()
   })
 })

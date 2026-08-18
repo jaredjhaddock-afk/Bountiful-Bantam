@@ -114,7 +114,6 @@ export function FormationEditorView({ unit, nav, formationId, onBack }: Formatio
     setError(null)
     try {
       await createFormation({ name: mirroredName, unit, players: mirrorFormation(players, FIELD_WIDTH) })
-      onBack()
     } catch {
       setError('Could not save the mirrored formation. Try again.')
     } finally {

@@ -105,8 +105,13 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
   )
 
   const updateFormation: PlaybookContextValue['updateFormation'] = useCallback(async (formation: Formation) => {
-    const { error } = await supabase.from('formations').update({ name: formation.name, players: formation.players }).eq('id', formation.id)
-    if (error) throw error
+    const { data, error } = await supabase
+      .from('formations')
+      .update({ name: formation.name, players: formation.players })
+      .eq('id', formation.id)
+      .select()
+      .single()
+    if (error || !data) throw error ?? new Error('Formation not found or update was not permitted')
     setFormations((prev) => prev.map((f) => (f.id === formation.id ? formation : f)))
   }, [])
 
