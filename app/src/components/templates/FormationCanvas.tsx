@@ -41,7 +41,12 @@ function fillClipRect(style: FillStyle, r: number): { x: number; y: number; widt
 
 export function FormationCanvas({ players, selectedId, armed, onAddPlayer, onSelectPlayer, onMovePlayer }: FormationCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
-  const dragRef = useRef<{ id: string; moved: boolean } | null>(null)
+  // offsetX/Y is the vector from the cursor to the token's actual center at the moment it was
+  // grabbed, preserved for the whole drag so the token doesn't snap to be centered under the
+  // cursor on the first move (which it would if we just set the token's position directly to
+  // the cursor's point) — it keeps following at the same spot relative to the cursor where it
+  // was originally picked up, however off-center that grab was.
+  const dragRef = useRef<{ id: string; moved: boolean; offsetX: number; offsetY: number } | null>(null)
   const suppressNextClick = useRef(false)
 
   const pointFromEvent = (e: { clientX: number; clientY: number }) => {
@@ -65,14 +70,22 @@ export function FormationCanvas({ players, selectedId, armed, onAddPlayer, onSel
 
   const handleTokenMouseDown = (id: string) => (e: ReactMouseEvent) => {
     e.stopPropagation()
-    dragRef.current = { id, moved: false }
+    const player = players.find((p) => p.id === id)
+    const point = pointFromEvent(e)
+    dragRef.current = {
+      id,
+      moved: false,
+      offsetX: player ? point.x - player.x : 0,
+      offsetY: player ? point.y - player.y : 0,
+    }
     suppressNextClick.current = true
   }
 
   const handleMouseMove = (e: ReactMouseEvent<SVGSVGElement>) => {
     if (!dragRef.current) return
     dragRef.current.moved = true
-    onMovePlayer(dragRef.current.id, pointFromEvent(e))
+    const point = pointFromEvent(e)
+    onMovePlayer(dragRef.current.id, { x: point.x - dragRef.current.offsetX, y: point.y - dragRef.current.offsetY })
   }
 
   const endDrag = () => {
