@@ -29,6 +29,10 @@ describe('isNumberTaken', () => {
   it('excludes the play being edited from the check (its own current number is not "taken")', () => {
     expect(isNumberTaken(plays, 10, 'a')).toBe(false)
   })
+
+  it('returns false against an empty list (numbering the first play in a unit)', () => {
+    expect(isNumberTaken([], 1, 'new-play')).toBe(false)
+  })
 })
 
 describe('reorderIds', () => {
@@ -50,5 +54,16 @@ describe('reorderIds', () => {
 
   it('clamps an out-of-range index to the end of the list', () => {
     expect(reorderIds(['a', 'b', 'c'], 'a', 99)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('clamps a negative index to the front of the list', () => {
+    expect(reorderIds(['a', 'b', 'c'], 'c', -5)).toEqual(['c', 'a', 'b'])
+  })
+
+  it('documents current behavior for a draggedId not present in ids: appends it rather than erroring', () => {
+    // Not expected to happen in practice — callers always pass an id that dnd-kit reports as
+    // currently being dragged, which by construction is one of the rendered (and thus listed)
+    // items — but this pins the actual behavior so a future change here is a conscious choice.
+    expect(reorderIds(['a', 'b'], 'z', 1)).toEqual(['a', 'z', 'b'])
   })
 })
