@@ -1,11 +1,12 @@
 interface DeleteConfirmModalProps {
   itemName: string
   blockedByNames?: string[]
+  error?: string | null
   onConfirm: () => void
   onCancel: () => void
 }
 
-export function DeleteConfirmModal({ itemName, blockedByNames, onConfirm, onCancel }: DeleteConfirmModalProps) {
+export function DeleteConfirmModal({ itemName, blockedByNames, error, onConfirm, onCancel }: DeleteConfirmModalProps) {
   const blocked = !!blockedByNames && blockedByNames.length > 0
 
   return (
@@ -24,6 +25,7 @@ export function DeleteConfirmModal({ itemName, blockedByNames, onConfirm, onCanc
             <p>This can't be undone.</p>
           )}
         </div>
+        {error && <p className="px-4 pb-2 text-xs text-alert-red">{error}</p>}
         <div className="flex justify-end gap-2 p-4 pt-0">
           {blocked ? (
             <button onClick={onCancel} className="rounded-standard bg-app-bg px-3 py-2 text-sm text-text">
