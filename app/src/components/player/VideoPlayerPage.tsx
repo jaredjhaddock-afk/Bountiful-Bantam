@@ -1,21 +1,36 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MediaController, Stroke, VideoSource } from '../../types/video'
+import type { Bookmark } from '../../state/bookmarksStore'
 import { useHoldScrub } from '../../lib/useHoldScrub'
+import { findAdjacentBookmark } from '../../lib/bookmarkUtils'
 import { ControlBar } from './ControlBar'
+import { BookmarksDrawer } from './BookmarksDrawer'
 import { DrawingCanvas } from './DrawingCanvas'
 import { ScrubBar } from './ScrubBar'
 import { VideoStage } from './VideoStage'
+import { DeleteConfirmModal } from '../playbook/DeleteConfirmModal'
 
 interface VideoPlayerPageProps {
   source: VideoSource
   initialTrim?: { inPoint: number; outPoint: number }
   initialStrokes?: Stroke[]
   onStateChange?: (state: { inPoint: number; outPoint: number; drawingStrokes: Stroke[] }) => void
-  onPrevClip?: () => void
-  onNextClip?: () => void
+  bookmarks: Bookmark[]
+  onCreateBookmark: (timeSeconds: number) => Bookmark
+  onUpdateBookmarkNote: (id: string, note: string) => void
+  onDeleteBookmark: (id: string) => Promise<void>
 }
 
-export function VideoPlayerPage({ source, initialTrim, initialStrokes, onStateChange, onPrevClip, onNextClip }: VideoPlayerPageProps) {
+export function VideoPlayerPage({
+  source,
+  initialTrim,
+  initialStrokes,
+  onStateChange,
+  bookmarks,
+  onCreateBookmark,
+  onUpdateBookmarkNote,
+  onDeleteBookmark,
+}: VideoPlayerPageProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const controllerRef = useRef<MediaController>(null)
   const [duration, setDuration] = useState(0)
@@ -96,12 +111,57 @@ export function VideoPlayerPage({ source, initialTrim, initialStrokes, onStateCh
     onStateChange?.({ inPoint, outPoint, drawingStrokes: strokes })
   }, [inPoint, outPoint, strokes, onStateChange])
 
+  // Bookmarks: creating pauses and hands the new row straight to the drawer for typing;
+  // Prev/Next-bookmark just seeks, using the same pure helper the remote listener uses.
+  const [drawerExpanded, setDrawerExpanded] = useState(false)
+  const [focusBookmarkId, setFocusBookmarkId] = useState<string | null>(null)
+  const [deletingBookmark, setDeletingBookmark] = useState<Bookmark | null>(null)
+  const [deleteBookmarkError, setDeleteBookmarkError] = useState<string | null>(null)
+
+  const handleBookmarkClick = useCallback(() => {
+    controllerRef.current?.pause()
+    const t = controllerRef.current?.getCurrentTime() ?? currentTime
+    const created = onCreateBookmark(t)
+    setFocusBookmarkId(created.id)
+    setDrawerExpanded(true)
+  }, [currentTime, onCreateBookmark])
+
+  const seekTo = useCallback((t: number) => {
+    controllerRef.current?.seekTo(t)
+    setCurrentTime(t)
+  }, [])
+
+  const handlePrevBookmark = useCallback(() => {
+    const target = findAdjacentBookmark(bookmarks, currentTime, -1)
+    if (target) seekTo(target.timeSeconds)
+  }, [bookmarks, currentTime, seekTo])
+
+  const handleNextBookmark = useCallback(() => {
+    const target = findAdjacentBookmark(bookmarks, currentTime, 1)
+    if (target) seekTo(target.timeSeconds)
+  }, [bookmarks, currentTime, seekTo])
+
+  const confirmDeleteBookmark = async () => {
+    if (!deletingBookmark) return
+    setDeleteBookmarkError(null)
+    try {
+      await onDeleteBookmark(deletingBookmark.id)
+      setDeletingBookmark(null)
+    } catch {
+      setDeleteBookmarkError('Could not delete this bookmark. Try again.')
+    }
+  }
+
   // Hudl remote support. Physically the remote is a Bluetooth HID keypad: each button sends
   // Ctrl+Shift+<digit> (confirmed by capturing raw KeyboardEvents), with a real keydown/keyup
   // pair per press (OS auto-repeats keydown while held, so `repeat` is used to fire hold-start
-  // exactly once). Digit-to-button mapping: 1=Full 2=Prev 3=Next 4=Rev 5=Slow 6=Rew 7=FF 8=Tag
-  // 9=Play. Rev/Slow/Rew/FF resume normal forward playback on release (not pause), matching how
-  // the physical remote's hold buttons behave, unlike the on-screen hold buttons which pause.
+  // exactly once). Digit-to-button mapping: 1=Full 2=Prev-bookmark 3=Next-bookmark 4=Rev
+  // 5=Slow 6=Rew 7=FF 8=Tag 9=Play. Rev/Slow/Rew/FF resume normal forward playback on release
+  // (not pause), matching how the physical remote's hold buttons behave, unlike the on-screen
+  // hold buttons which pause. Prev/Next used to switch between saved clips; they now step
+  // between this clip's bookmarks instead — there's no on-screen equivalent for clip-switching
+  // either, so nothing is lost that existed anywhere else, and bookmark navigation is far more
+  // useful during actual film review.
   useEffect(() => {
     const holdActions: Record<string, ReturnType<typeof useHoldScrub>> = {
       Digit4: slowRev,
@@ -111,8 +171,8 @@ export function VideoPlayerPage({ source, initialTrim, initialStrokes, onStateCh
     }
     const tapActions: Record<string, (() => void) | undefined> = {
       Digit1: toggleFullscreen,
-      Digit2: onPrevClip,
-      Digit3: onNextClip,
+      Digit2: handlePrevBookmark,
+      Digit3: handleNextBookmark,
       Digit8: handleTag,
       Digit9: togglePlay,
     }
@@ -147,7 +207,7 @@ export function VideoPlayerPage({ source, initialTrim, initialStrokes, onStateCh
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [slowRev, slowFwd, fastRev, fastFwd, toggleFullscreen, onPrevClip, onNextClip, handleTag, togglePlay])
+  }, [slowRev, slowFwd, fastRev, fastFwd, toggleFullscreen, handlePrevBookmark, handleNextBookmark, handleTag, togglePlay])
 
   return (
     <div ref={containerRef} className="relative flex h-full flex-col">
@@ -168,10 +228,7 @@ export function VideoPlayerPage({ source, initialTrim, initialStrokes, onStateCh
           currentTime={currentTime}
           inPoint={inPoint}
           outPoint={outPoint || duration}
-          onSeek={(t) => {
-            controllerRef.current?.seekTo(t)
-            setCurrentTime(t)
-          }}
+          onSeek={seekTo}
           onSetIn={setInPoint}
           onSetOut={setOutPoint}
         />
@@ -189,8 +246,36 @@ export function VideoPlayerPage({ source, initialTrim, initialStrokes, onStateCh
           drawMode={drawMode}
           onToggleDraw={() => setDrawMode((v) => !v)}
           onResetDrawing={() => setStrokes([])}
+          currentTime={currentTime}
+          duration={duration}
+          onBookmark={handleBookmarkClick}
+        />
+        <BookmarksDrawer
+          bookmarks={bookmarks}
+          expanded={drawerExpanded}
+          onToggleExpanded={() => setDrawerExpanded((v) => !v)}
+          focusBookmarkId={focusBookmarkId}
+          onFocusConsumed={() => setFocusBookmarkId(null)}
+          onSeek={seekTo}
+          onUpdateNote={onUpdateBookmarkNote}
+          onDeleteRequest={(bookmark) => {
+            setDeletingBookmark(bookmark)
+            setDeleteBookmarkError(null)
+          }}
         />
       </div>
+
+      {deletingBookmark && (
+        <DeleteConfirmModal
+          itemName="this bookmark"
+          error={deleteBookmarkError}
+          onConfirm={confirmDeleteBookmark}
+          onCancel={() => {
+            setDeletingBookmark(null)
+            setDeleteBookmarkError(null)
+          }}
+        />
+      )}
     </div>
   )
 }
