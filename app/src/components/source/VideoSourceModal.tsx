@@ -26,7 +26,7 @@ export function VideoSourceModal({ onSelect }: VideoSourceModalProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    onSelect({ type: 'file', url: URL.createObjectURL(file), fileName: file.name })
+    onSelect({ type: 'file', url: URL.createObjectURL(file), fileName: file.name, fileSize: file.size })
   }
 
   return (
