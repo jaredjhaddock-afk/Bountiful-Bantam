@@ -273,3 +273,14 @@ export const PlayTriangleIcon = (p: IconProps) => (
     <path d="M7 5l12 7-12 7z" fill="currentColor" stroke="none" />
   </svg>
 )
+export const BookmarkIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M6 3h12v18l-6-4-6 4z" />
+  </svg>
+)
+export const FileIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M6 2h9l5 5v14a1 1 0 01-1 1H6a1 1 0 01-1-1V3a1 1 0 011-1z" />
+    <path d="M15 2v5h5" />
+  </svg>
+)
