@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthProvider'
 import { clipToInsertRow, clipToUpdateRow, rowToClip, type Clip, type ClipSourceType } from './clipsStore.mappers'
@@ -10,6 +10,7 @@ interface ClipsContextValue {
   clips: Clip[]
   createClip: (input: { sourceType: ClipSourceType; sourceRef: string; title?: string | null }) => Clip
   updateClip: (clip: Clip) => void
+  findOrCreateFileClip: (fingerprint: string, fileName: string) => Clip
 }
 
 const ClipsContext = createContext<ClipsContextValue | null>(null)
@@ -55,6 +56,21 @@ export function ClipsProvider({ children }: { children: ReactNode }) {
     [teamId],
   )
 
+  const pendingFileClipsRef = useRef<Map<string, Clip>>(new Map())
+
+  const findOrCreateFileClip: ClipsContextValue['findOrCreateFileClip'] = useCallback(
+    (fingerprint, fileName) => {
+      const existing = clips.find((c) => c.sourceType === 'file' && c.sourceRef === fingerprint)
+      if (existing) return existing
+      const pending = pendingFileClipsRef.current.get(fingerprint)
+      if (pending) return pending
+      const created = createClip({ sourceType: 'file', sourceRef: fingerprint, title: fileName })
+      pendingFileClipsRef.current.set(fingerprint, created)
+      return created
+    },
+    [clips, createClip],
+  )
+
   const updateClip: ClipsContextValue['updateClip'] = useCallback((clip: Clip) => {
     setClips((prev) => prev.map((c) => (c.id === clip.id ? clip : c)))
     supabase
@@ -66,7 +82,10 @@ export function ClipsProvider({ children }: { children: ReactNode }) {
       })
   }, [])
 
-  const value = useMemo<ClipsContextValue>(() => ({ loading, clips, createClip, updateClip }), [loading, clips, createClip, updateClip])
+  const value = useMemo<ClipsContextValue>(
+    () => ({ loading, clips, createClip, updateClip, findOrCreateFileClip }),
+    [loading, clips, createClip, updateClip, findOrCreateFileClip],
+  )
 
   return <ClipsContext.Provider value={value}>{children}</ClipsContext.Provider>
 }
