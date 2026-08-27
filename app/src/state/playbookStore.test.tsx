@@ -245,6 +245,15 @@ describe('playbookStore', () => {
     expect(byId).toEqual({ duo: 0, 'i-right': 1, 'split-right': 2, deuce: 3 })
   })
 
+  it('reorderFormations updates the array order itself, not just the sortOrder field, so formationsForUnit reflects the new order without a refetch', async () => {
+    const { result } = renderHook(() => usePlaybook(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    await act(async () => {
+      await result.current.reorderFormations('offense', ['duo', 'i-right', 'split-right', 'deuce'])
+    })
+    expect(result.current.formationsForUnit('offense').map((f) => f.id)).toEqual(['duo', 'i-right', 'split-right', 'deuce'])
+  })
+
   it('reorderPlays writes the new sortOrder for each play in the given unit', async () => {
     const { result } = renderHook(() => usePlaybook(), { wrapper })
     await waitFor(() => expect(result.current.loading).toBe(false))
@@ -261,5 +270,29 @@ describe('playbookStore', () => {
     })
     expect(result.current.plays.find((p) => p.id === secondId)!.sortOrder).toBe(0)
     expect(result.current.plays.find((p) => p.id === firstId)!.sortOrder).toBe(1)
+  })
+
+  it('reorderPlays updates the array order itself so the reordered plays render in the new order, without scrambling other units', async () => {
+    const { result } = renderHook(() => usePlaybook(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    let firstId = ''
+    let secondId = ''
+    let defensePlayId = ''
+    act(() => {
+      firstId = result.current.createPlay({ name: 'First', unit: 'offense', formationId: 'i-right', categoryId: 'run', positionNotes: {} }).id
+    })
+    act(() => {
+      secondId = result.current.createPlay({ name: 'Second', unit: 'offense', formationId: 'i-right', categoryId: 'run', positionNotes: {} }).id
+    })
+    act(() => {
+      defensePlayId = result.current.createPlay({ name: 'D Play', unit: 'defense', formationId: '4-3', categoryId: 'run', positionNotes: {} }).id
+    })
+    await act(async () => {
+      await result.current.reorderPlays('offense', [secondId, firstId])
+    })
+    expect(result.current.plays.filter((p) => p.unit === 'offense').map((p) => p.id)).toEqual([secondId, firstId])
+    // The unrelated defense play (with an offense-colliding sortOrder of 0) must not be pulled
+    // into the reordered offense sequence.
+    expect(result.current.plays.some((p) => p.id === defensePlayId)).toBe(true)
   })
 })

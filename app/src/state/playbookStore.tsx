@@ -146,13 +146,15 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const reorderFormations: PlaybookContextValue['reorderFormations'] = useCallback(async (unit: Unit, orderedIds: string[]) => {
-    setFormations((prev) =>
-      prev.map((f) => {
-        if (f.unit !== unit) return f
-        const idx = orderedIds.indexOf(f.id)
-        return idx === -1 ? f : { ...f, sortOrder: idx }
-      }),
-    )
+    // Reordering only relabels each formation's sortOrder field, not its position in `prev` — but
+    // formationsForUnit/rendering read that array position directly (filter() preserves relative
+    // order), so the new order must also be reflected in the array itself, not just the field.
+    setFormations((prev) => {
+      const byId = new Map(prev.map((f) => [f.id, f]))
+      const reordered = orderedIds.map((id, idx) => ({ ...byId.get(id)!, sortOrder: idx }))
+      const others = prev.filter((f) => f.unit !== unit)
+      return [...others, ...reordered]
+    })
     const results = await Promise.all(orderedIds.map((id, idx) => supabase.from('formations').update({ sort_order: idx }).eq('id', id)))
     results.forEach(({ error }) => {
       if (error) console.error('Failed to persist formation reorder', error)
@@ -160,13 +162,12 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const reorderPlays: PlaybookContextValue['reorderPlays'] = useCallback(async (unit: Unit, orderedIds: string[]) => {
-    setPlays((prev) =>
-      prev.map((p) => {
-        if (p.unit !== unit) return p
-        const idx = orderedIds.indexOf(p.id)
-        return idx === -1 ? p : { ...p, sortOrder: idx }
-      }),
-    )
+    setPlays((prev) => {
+      const byId = new Map(prev.map((p) => [p.id, p]))
+      const reordered = orderedIds.map((id, idx) => ({ ...byId.get(id)!, sortOrder: idx }))
+      const others = prev.filter((p) => p.unit !== unit)
+      return [...others, ...reordered]
+    })
     const results = await Promise.all(orderedIds.map((id, idx) => supabase.from('plays').update({ sort_order: idx }).eq('id', id)))
     results.forEach(({ error }) => {
       if (error) console.error('Failed to persist play reorder', error)
