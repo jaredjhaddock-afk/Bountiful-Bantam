@@ -5,6 +5,7 @@ export interface VideoSource {
   url: string
   youtubeId?: string
   fileName?: string
+  fileSize?: number
 }
 
 export interface Point {

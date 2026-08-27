@@ -1,6 +1,6 @@
 import type { Stroke } from '../types/video'
 
-export type ClipSourceType = 'youtube' | 'drive'
+export type ClipSourceType = 'youtube' | 'drive' | 'file'
 
 export interface Clip {
   id: string
