@@ -1,4 +1,6 @@
+import { formatTimestamp } from '../../lib/bookmarkUtils'
 import {
+  BookmarkIcon,
   FastFwdIcon,
   FastRevIcon,
   InIcon,
@@ -34,6 +36,9 @@ interface ControlBarProps {
   drawMode: boolean
   onToggleDraw: () => void
   onResetDrawing: () => void
+  currentTime: number
+  duration: number
+  onBookmark: () => void
 }
 
 function HoldButton({ handlers, label, children }: { handlers: HandlerPair; label: string; children: React.ReactNode }) {
@@ -66,6 +71,9 @@ export function ControlBar({
   drawMode,
   onToggleDraw,
   onResetDrawing,
+  currentTime,
+  duration,
+  onBookmark,
 }: ControlBarProps) {
   return (
     <div className="flex items-center justify-between gap-4 px-3 py-2">
@@ -125,6 +133,19 @@ export function ControlBar({
         </button>
         <button onClick={onResetDrawing} className="rounded-standard p-1.5 text-text hover:bg-white/10" aria-label="Clear drawing">
           <TrashIcon width={16} height={16} />
+        </button>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <span className="text-xs tabular-nums text-muted">
+          {formatTimestamp(currentTime)} / {formatTimestamp(duration)}
+        </span>
+        <button
+          onClick={onBookmark}
+          className="flex items-center gap-1 rounded-standard px-2 py-1 text-xs text-text hover:bg-white/10"
+          aria-label="Bookmark this moment"
+        >
+          <BookmarkIcon width={16} height={16} /> Bookmark
         </button>
       </div>
     </div>
