@@ -240,6 +240,16 @@ export const MirrorIcon = (p: IconProps) => (
     <path d="M17 8l3 4-3 4" />
   </svg>
 )
+export const GripIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="9" cy="6" r="1" fill="currentColor" stroke="none" />
+    <circle cx="9" cy="12" r="1" fill="currentColor" stroke="none" />
+    <circle cx="9" cy="18" r="1" fill="currentColor" stroke="none" />
+    <circle cx="15" cy="6" r="1" fill="currentColor" stroke="none" />
+    <circle cx="15" cy="12" r="1" fill="currentColor" stroke="none" />
+    <circle cx="15" cy="18" r="1" fill="currentColor" stroke="none" />
+  </svg>
+)
 export const UploadIcon = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M12 16V4M7 9l5-5 5 5" />

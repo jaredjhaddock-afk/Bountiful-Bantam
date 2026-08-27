@@ -5,6 +5,7 @@ export interface FormationRow {
   unit: string
   name: string
   players: Formation['players']
+  sort_order: number
 }
 export interface CategoryRow {
   id: string
@@ -20,10 +21,12 @@ export interface PlayRow {
   players: Play['players']
   annotations: Play['annotations']
   position_notes: Play['positionNotes']
+  sort_order: number
+  number: number
 }
 
 export function rowToFormation(row: FormationRow): Formation {
-  return { id: row.id, name: row.name, unit: row.unit as Formation['unit'], players: row.players ?? [] }
+  return { id: row.id, name: row.name, unit: row.unit as Formation['unit'], players: row.players ?? [], sortOrder: row.sort_order }
 }
 
 export function rowToCategory(row: CategoryRow): Category {
@@ -40,6 +43,8 @@ export function rowToPlay(row: PlayRow): Play {
     players: row.players ?? [],
     annotations: row.annotations ?? [],
     positionNotes: row.position_notes ?? {},
+    sortOrder: row.sort_order,
+    number: row.number,
   }
 }
 
@@ -54,6 +59,8 @@ export function playToInsertRow(play: Play, teamId: string) {
     players: play.players,
     annotations: play.annotations,
     position_notes: play.positionNotes,
+    sort_order: play.sortOrder,
+    number: play.number,
   }
 }
 
@@ -64,6 +71,8 @@ export function playToUpdateRow(play: Play) {
     annotations: play.annotations,
     position_notes: play.positionNotes,
     category_id: play.categoryId,
+    sort_order: play.sortOrder,
+    number: play.number,
     updated_at: new Date().toISOString(),
   }
 }

@@ -26,10 +26,10 @@ const OFFENSE_PLAYERS = [
 ]
 
 const FORMATION_ROWS = [
-  { id: 'i-right', unit: 'offense', name: 'I Right', players: OFFENSE_PLAYERS },
-  { id: 'split-right', unit: 'offense', name: 'Split Right', players: OFFENSE_PLAYERS },
-  { id: 'deuce', unit: 'offense', name: 'Deuce', players: OFFENSE_PLAYERS },
-  { id: 'duo', unit: 'offense', name: 'Duo', players: OFFENSE_PLAYERS },
+  { id: 'i-right', unit: 'offense', name: 'I Right', players: OFFENSE_PLAYERS, sort_order: 0 },
+  { id: 'split-right', unit: 'offense', name: 'Split Right', players: OFFENSE_PLAYERS, sort_order: 1 },
+  { id: 'deuce', unit: 'offense', name: 'Deuce', players: OFFENSE_PLAYERS, sort_order: 2 },
+  { id: 'duo', unit: 'offense', name: 'Duo', players: OFFENSE_PLAYERS, sort_order: 3 },
 ]
 
 const CATEGORY_ROWS = [{ id: 'run', unit: 'offense', name: 'Run' }]
@@ -42,21 +42,38 @@ function makeBuilder(result: { data: unknown; error: unknown }) {
     single: () => builder,
     insert: () => builder,
     update: () => builder,
+    delete: () => builder,
     then: (onfulfilled: (value: typeof result) => unknown) => Promise.resolve(result).then(onfulfilled),
   } as never
   return builder
 }
 
 // The formations table needs richer behavior than the generic makeBuilder: the initial
-// `.select().order()` load must resolve to the full row list, while a later
-// `.update(...).eq(...).select().single()` call (from updateFormation) must resolve to just
-// the single updated row. Unlike makeBuilder, the two terminal methods (`order`/`single`)
-// each return a genuine Promise directly rather than making the whole builder thenable, so
-// there's no risk of an accidental double-await on a plain thenable object.
+// `.select().order()` load must resolve to the full row list; `.update(...).eq(...).select().single()`
+// (from updateFormation) must resolve to just the single updated row; `.delete().eq(...)`
+// awaited directly with no further chaining (from deleteFormation, reorderFormations) must
+// resolve to a plain `{ data: null, error: null }`. `eq()`'s returned builder is itself
+// thenable (has a `.then`) so it can be awaited directly for the delete/reorder case *or*
+// chained further into `.select().single()` for the update case — both paths resolve through
+// the same pure `resolveEq()` read of the current closure state, so awaiting it more than once
+// (once implicitly via `.eq()`'s own thenable, once explicitly via `.single()`) is safe: it has
+// no side effects, so it can't produce a different result the second time.
 function makeFormationsBuilder() {
   let updatePayload: Record<string, unknown> | null = null
   let eqId: string | null = null
-  const builder: Record<string, (...args: unknown[]) => unknown> = {
+  let deleted = false
+
+  const resolveEq = (): { data: unknown; error: unknown } => {
+    const original = FORMATION_ROWS.find((f) => f.id === eqId)
+    if (deleted) return { data: null, error: null }
+    if (updatePayload) {
+      const data = original ? { ...original, ...updatePayload } : null
+      return { data, error: data ? null : new Error('Formation not found') }
+    }
+    return { data: original ?? null, error: null }
+  }
+
+  const builder = {
     select: () => builder,
     eq: (_col: unknown, val: unknown) => {
       eqId = String(val)
@@ -67,12 +84,13 @@ function makeFormationsBuilder() {
       updatePayload = payload as Record<string, unknown>
       return builder
     },
-    order: () => Promise.resolve({ data: FORMATION_ROWS, error: null }),
-    single: () => {
-      const original = FORMATION_ROWS.find((f) => f.id === eqId)
-      const data = original ? { ...original, ...updatePayload } : null
-      return Promise.resolve({ data, error: data ? null : new Error('Formation not found') })
+    delete: () => {
+      deleted = true
+      return builder
     },
+    order: () => Promise.resolve({ data: FORMATION_ROWS, error: null }),
+    single: () => Promise.resolve(resolveEq()),
+    then: (onfulfilled: (value: { data: unknown; error: unknown }) => unknown) => Promise.resolve(resolveEq()).then(onfulfilled),
   }
   return builder
 }
@@ -98,7 +116,7 @@ describe('playbookStore', () => {
     expect(offense.map((f) => f.id)).toEqual(['i-right', 'split-right', 'deuce', 'duo'])
   })
 
-  it('createPlay seeds players from the chosen formation with empty routes', async () => {
+  it('createPlay seeds players from the chosen formation with empty routes, and assigns sortOrder 0 and number 1 for the first play in a unit', async () => {
     const { result } = renderHook(() => usePlaybook(), { wrapper })
     await waitFor(() => expect(result.current.loading).toBe(false))
     let playId = ''
@@ -116,6 +134,24 @@ describe('playbookStore', () => {
     expect(play).toBeDefined()
     expect(play!.players).toHaveLength(11)
     expect(play!.players.every((p) => p.route.length === 0)).toBe(true)
+    expect(play!.sortOrder).toBe(0)
+    expect(play!.number).toBe(1)
+  })
+
+  it('createPlay assigns the next sortOrder and number after existing plays in the same unit', async () => {
+    const { result } = renderHook(() => usePlaybook(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => {
+      result.current.createPlay({ name: 'First', unit: 'offense', formationId: 'i-right', categoryId: 'run', positionNotes: {} })
+    })
+    let secondId = ''
+    act(() => {
+      const play = result.current.createPlay({ name: 'Second', unit: 'offense', formationId: 'i-right', categoryId: 'run', positionNotes: {} })
+      secondId = play.id
+    })
+    const second = result.current.plays.find((p) => p.id === secondId)!
+    expect(second.sortOrder).toBe(1)
+    expect(second.number).toBe(2)
   })
 
   it('updatePlay replaces the play with matching id', async () => {
@@ -139,6 +175,20 @@ describe('playbookStore', () => {
     expect(result.current.plays.find((p) => p.id === playId)!.name).toBe('Renamed')
   })
 
+  it('deletePlay removes the play from state', async () => {
+    const { result } = renderHook(() => usePlaybook(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    let playId = ''
+    act(() => {
+      const play = result.current.createPlay({ name: 'Test Play', unit: 'offense', formationId: 'i-right', categoryId: 'run', positionNotes: {} })
+      playId = play.id
+    })
+    await act(async () => {
+      await result.current.deletePlay(playId)
+    })
+    expect(result.current.plays.find((p) => p.id === playId)).toBeUndefined()
+  })
+
   it('updateFormation replaces the formation with matching id and calls update, not insert', async () => {
     const { result } = renderHook(() => usePlaybook(), { wrapper })
     await waitFor(() => expect(result.current.loading).toBe(false))
@@ -158,5 +208,91 @@ describe('playbookStore', () => {
         await result.current.updateFormation({ ...original, id: 'does-not-exist' })
       }),
     ).rejects.toThrow()
+  })
+
+  it('deleteFormation is blocked with the blocking play names when a play references it', async () => {
+    const { result } = renderHook(() => usePlaybook(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => {
+      result.current.createPlay({ name: 'Uses I Right', unit: 'offense', formationId: 'i-right', categoryId: 'run', positionNotes: {} })
+    })
+    let outcome: Awaited<ReturnType<typeof result.current.deleteFormation>> | undefined
+    await act(async () => {
+      outcome = await result.current.deleteFormation('i-right')
+    })
+    expect(outcome).toEqual({ blocked: true, playNames: ['Uses I Right'] })
+    expect(result.current.formations.find((f) => f.id === 'i-right')).toBeDefined()
+  })
+
+  it('deleteFormation succeeds and removes the formation when nothing references it', async () => {
+    const { result } = renderHook(() => usePlaybook(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    let outcome: Awaited<ReturnType<typeof result.current.deleteFormation>> | undefined
+    await act(async () => {
+      outcome = await result.current.deleteFormation('duo')
+    })
+    expect(outcome).toEqual({ blocked: false })
+    expect(result.current.formations.find((f) => f.id === 'duo')).toBeUndefined()
+  })
+
+  it('reorderFormations writes the new sortOrder for each formation in the given unit', async () => {
+    const { result } = renderHook(() => usePlaybook(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    await act(async () => {
+      await result.current.reorderFormations('offense', ['duo', 'i-right', 'split-right', 'deuce'])
+    })
+    const byId = Object.fromEntries(result.current.formations.map((f) => [f.id, f.sortOrder]))
+    expect(byId).toEqual({ duo: 0, 'i-right': 1, 'split-right': 2, deuce: 3 })
+  })
+
+  it('reorderFormations updates the array order itself, not just the sortOrder field, so formationsForUnit reflects the new order without a refetch', async () => {
+    const { result } = renderHook(() => usePlaybook(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    await act(async () => {
+      await result.current.reorderFormations('offense', ['duo', 'i-right', 'split-right', 'deuce'])
+    })
+    expect(result.current.formationsForUnit('offense').map((f) => f.id)).toEqual(['duo', 'i-right', 'split-right', 'deuce'])
+  })
+
+  it('reorderPlays writes the new sortOrder for each play in the given unit', async () => {
+    const { result } = renderHook(() => usePlaybook(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    let firstId = ''
+    let secondId = ''
+    act(() => {
+      firstId = result.current.createPlay({ name: 'First', unit: 'offense', formationId: 'i-right', categoryId: 'run', positionNotes: {} }).id
+    })
+    act(() => {
+      secondId = result.current.createPlay({ name: 'Second', unit: 'offense', formationId: 'i-right', categoryId: 'run', positionNotes: {} }).id
+    })
+    await act(async () => {
+      await result.current.reorderPlays('offense', [secondId, firstId])
+    })
+    expect(result.current.plays.find((p) => p.id === secondId)!.sortOrder).toBe(0)
+    expect(result.current.plays.find((p) => p.id === firstId)!.sortOrder).toBe(1)
+  })
+
+  it('reorderPlays updates the array order itself so the reordered plays render in the new order, without scrambling other units', async () => {
+    const { result } = renderHook(() => usePlaybook(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    let firstId = ''
+    let secondId = ''
+    let defensePlayId = ''
+    act(() => {
+      firstId = result.current.createPlay({ name: 'First', unit: 'offense', formationId: 'i-right', categoryId: 'run', positionNotes: {} }).id
+    })
+    act(() => {
+      secondId = result.current.createPlay({ name: 'Second', unit: 'offense', formationId: 'i-right', categoryId: 'run', positionNotes: {} }).id
+    })
+    act(() => {
+      defensePlayId = result.current.createPlay({ name: 'D Play', unit: 'defense', formationId: '4-3', categoryId: 'run', positionNotes: {} }).id
+    })
+    await act(async () => {
+      await result.current.reorderPlays('offense', [secondId, firstId])
+    })
+    expect(result.current.plays.filter((p) => p.unit === 'offense').map((p) => p.id)).toEqual([secondId, firstId])
+    // The unrelated defense play (with an offense-colliding sortOrder of 0) must not be pulled
+    // into the reordered offense sequence.
+    expect(result.current.plays.some((p) => p.id === defensePlayId)).toBe(true)
   })
 })

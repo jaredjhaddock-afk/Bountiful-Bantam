@@ -4,12 +4,12 @@ import type { Play } from '../types/play'
 
 describe('rowToFormation', () => {
   it('maps a DB row to the app Formation shape', () => {
-    const row = { id: '1', unit: 'offense', name: 'I Right', players: [{ id: 'X', label: 'X', role: 'skill' as const, x: 12, y: 30 }] }
-    expect(rowToFormation(row)).toEqual({ id: '1', name: 'I Right', unit: 'offense', players: row.players })
+    const row = { id: '1', unit: 'offense', name: 'I Right', players: [{ id: 'X', label: 'X', role: 'skill' as const, x: 12, y: 30 }], sort_order: 2 }
+    expect(rowToFormation(row)).toEqual({ id: '1', name: 'I Right', unit: 'offense', players: row.players, sortOrder: 2 })
   })
 
   it('defaults players to an empty array when null', () => {
-    const row = { id: '1', unit: 'offense', name: 'Empty', players: null as unknown as [] }
+    const row = { id: '1', unit: 'offense', name: 'Empty', players: null as unknown as [], sort_order: 0 }
     expect(rowToFormation(row).players).toEqual([])
   })
 })
@@ -31,6 +31,8 @@ describe('rowToPlay', () => {
       players: [],
       annotations: [],
       position_notes: { X: 'go deep' },
+      sort_order: 4,
+      number: 12,
     }
     expect(rowToPlay(row)).toEqual({
       id: '1',
@@ -41,11 +43,24 @@ describe('rowToPlay', () => {
       players: [],
       annotations: [],
       positionNotes: { X: 'go deep' },
+      sortOrder: 4,
+      number: 12,
     })
   })
 
   it('defaults jsonb columns to empty values when null', () => {
-    const row = { id: '1', unit: 'offense', formation_id: 'f1', category_id: 'c1', name: 'Play 1', players: null as any, annotations: null as any, position_notes: null as any }
+    const row = {
+      id: '1',
+      unit: 'offense',
+      formation_id: 'f1',
+      category_id: 'c1',
+      name: 'Play 1',
+      players: null as any,
+      annotations: null as any,
+      position_notes: null as any,
+      sort_order: 0,
+      number: 1,
+    }
     const play = rowToPlay(row)
     expect(play.players).toEqual([])
     expect(play.annotations).toEqual([])
@@ -63,9 +78,11 @@ describe('playToInsertRow / playToUpdateRow', () => {
     players: [],
     annotations: [],
     positionNotes: {},
+    sortOrder: 3,
+    number: 12,
   }
 
-  it('playToInsertRow includes team_id and snake_case columns', () => {
+  it('playToInsertRow includes team_id, snake_case columns, sort_order, and number', () => {
     expect(playToInsertRow(play, 'team-1')).toEqual({
       id: '1',
       team_id: 'team-1',
@@ -76,12 +93,14 @@ describe('playToInsertRow / playToUpdateRow', () => {
       players: [],
       annotations: [],
       position_notes: {},
+      sort_order: 3,
+      number: 12,
     })
   })
 
-  it('playToUpdateRow omits id/team_id and includes updated_at', () => {
+  it('playToUpdateRow omits id/team_id, includes sort_order/number, and includes updated_at', () => {
     const row = playToUpdateRow(play)
-    expect(row).toMatchObject({ name: 'Play 1', players: [], annotations: [], position_notes: {}, category_id: 'c1' })
+    expect(row).toMatchObject({ name: 'Play 1', players: [], annotations: [], position_notes: {}, category_id: 'c1', sort_order: 3, number: 12 })
     expect(row.updated_at).toEqual(expect.any(String))
   })
 })

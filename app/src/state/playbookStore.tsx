@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../auth/AuthProvider'
 import type { Category, Formation, Play, Unit } from '../types/play'
 import { playToInsertRow, playToUpdateRow, rowToCategory, rowToFormation, rowToPlay } from './playbookStore.mappers'
+import { nextPlayNumber } from '../lib/listOrdering'
 
 interface PlaybookContextValue {
   teamName: string
@@ -16,6 +17,10 @@ interface PlaybookContextValue {
   updatePlay: (play: Play) => void
   createFormation: (input: { name: string; unit: Unit; players: Formation['players'] }) => Promise<Formation>
   updateFormation: (formation: Formation) => Promise<void>
+  deleteFormation: (id: string) => Promise<{ blocked: true; playNames: string[] } | { blocked: false }>
+  deletePlay: (id: string) => Promise<void>
+  reorderFormations: (unit: Unit, orderedIds: string[]) => Promise<void>
+  reorderPlays: (unit: Unit, orderedIds: string[]) => Promise<void>
   createCategory: (input: { name: string; unit: Unit }) => Promise<Category>
   getFormation: (id: string) => Formation | undefined
 }
@@ -35,9 +40,9 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     setLoading(true)
     Promise.all([
-      supabase.from('formations').select('*').order('created_at'),
+      supabase.from('formations').select('*').order('sort_order'),
       supabase.from('categories').select('*').order('created_at'),
-      supabase.from('plays').select('*').order('created_at'),
+      supabase.from('plays').select('*').order('sort_order'),
     ]).then(([f, c, p]) => {
       if (cancelled) return
       if (f.data) setFormations(f.data.map(rowToFormation))
@@ -57,6 +62,7 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
   const createPlay: PlaybookContextValue['createPlay'] = useCallback(
     ({ name, unit, formationId, categoryId, positionNotes }) => {
       const formation = formations.find((f) => f.id === formationId)
+      const unitPlays = plays.filter((p) => p.unit === unit)
       const play: Play = {
         id: crypto.randomUUID(),
         name,
@@ -66,6 +72,8 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
         positionNotes,
         annotations: [],
         players: (formation?.players ?? []).map((p) => ({ ...p, route: [] })),
+        sortOrder: unitPlays.length === 0 ? 0 : Math.max(...unitPlays.map((p) => p.sortOrder)) + 1,
+        number: nextPlayNumber(unitPlays.map((p) => p.number)),
       }
       setPlays((prev) => [...prev, play])
       if (teamId) {
@@ -78,7 +86,7 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
       }
       return play
     },
-    [formations, teamId],
+    [formations, plays, teamId],
   )
 
   const updatePlay: PlaybookContextValue['updatePlay'] = useCallback((play: Play) => {
@@ -95,13 +103,15 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
   const createFormation: PlaybookContextValue['createFormation'] = useCallback(
     async ({ name, unit, players }) => {
       if (!teamId) throw new Error('No team')
-      const { data, error } = await supabase.from('formations').insert({ team_id: teamId, unit, name, players }).select().single()
+      const unitFormations = formations.filter((f) => f.unit === unit)
+      const sortOrder = unitFormations.length === 0 ? 0 : Math.max(...unitFormations.map((f) => f.sortOrder)) + 1
+      const { data, error } = await supabase.from('formations').insert({ team_id: teamId, unit, name, players, sort_order: sortOrder }).select().single()
       if (error || !data) throw error ?? new Error('Failed to create formation')
       const formation = rowToFormation(data)
       setFormations((prev) => [...prev, formation])
       return formation
     },
-    [teamId],
+    [teamId, formations],
   )
 
   const updateFormation: PlaybookContextValue['updateFormation'] = useCallback(async (formation: Formation) => {
@@ -113,6 +123,55 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
       .single()
     if (error || !data) throw error ?? new Error('Formation not found or update was not permitted')
     setFormations((prev) => prev.map((f) => (f.id === formation.id ? formation : f)))
+  }, [])
+
+  const deleteFormation: PlaybookContextValue['deleteFormation'] = useCallback(
+    async (id: string) => {
+      const blockingPlays = plays.filter((p) => p.formationId === id)
+      if (blockingPlays.length > 0) {
+        return { blocked: true as const, playNames: blockingPlays.map((p) => p.name) }
+      }
+      const { error } = await supabase.from('formations').delete().eq('id', id)
+      if (error) throw error
+      setFormations((prev) => prev.filter((f) => f.id !== id))
+      return { blocked: false as const }
+    },
+    [plays],
+  )
+
+  const deletePlay: PlaybookContextValue['deletePlay'] = useCallback(async (id: string) => {
+    const { error } = await supabase.from('plays').delete().eq('id', id)
+    if (error) throw error
+    setPlays((prev) => prev.filter((p) => p.id !== id))
+  }, [])
+
+  const reorderFormations: PlaybookContextValue['reorderFormations'] = useCallback(async (unit: Unit, orderedIds: string[]) => {
+    // Reordering only relabels each formation's sortOrder field, not its position in `prev` — but
+    // formationsForUnit/rendering read that array position directly (filter() preserves relative
+    // order), so the new order must also be reflected in the array itself, not just the field.
+    setFormations((prev) => {
+      const byId = new Map(prev.map((f) => [f.id, f]))
+      const reordered = orderedIds.map((id, idx) => ({ ...byId.get(id)!, sortOrder: idx }))
+      const others = prev.filter((f) => f.unit !== unit)
+      return [...others, ...reordered]
+    })
+    const results = await Promise.all(orderedIds.map((id, idx) => supabase.from('formations').update({ sort_order: idx }).eq('id', id)))
+    results.forEach(({ error }) => {
+      if (error) console.error('Failed to persist formation reorder', error)
+    })
+  }, [])
+
+  const reorderPlays: PlaybookContextValue['reorderPlays'] = useCallback(async (unit: Unit, orderedIds: string[]) => {
+    setPlays((prev) => {
+      const byId = new Map(prev.map((p) => [p.id, p]))
+      const reordered = orderedIds.map((id, idx) => ({ ...byId.get(id)!, sortOrder: idx }))
+      const others = prev.filter((p) => p.unit !== unit)
+      return [...others, ...reordered]
+    })
+    const results = await Promise.all(orderedIds.map((id, idx) => supabase.from('plays').update({ sort_order: idx }).eq('id', id)))
+    results.forEach(({ error }) => {
+      if (error) console.error('Failed to persist play reorder', error)
+    })
   }, [])
 
   const createCategory: PlaybookContextValue['createCategory'] = useCallback(
@@ -140,10 +199,32 @@ export function PlaybookProvider({ children }: { children: ReactNode }) {
       updatePlay,
       createFormation,
       updateFormation,
+      deleteFormation,
+      deletePlay,
+      reorderFormations,
+      reorderPlays,
       createCategory,
       getFormation,
     }),
-    [authTeamName, loading, formations, categories, plays, formationsForUnit, categoriesForUnit, createPlay, updatePlay, createFormation, updateFormation, createCategory, getFormation],
+    [
+      authTeamName,
+      loading,
+      formations,
+      categories,
+      plays,
+      formationsForUnit,
+      categoriesForUnit,
+      createPlay,
+      updatePlay,
+      createFormation,
+      updateFormation,
+      deleteFormation,
+      deletePlay,
+      reorderFormations,
+      reorderPlays,
+      createCategory,
+      getFormation,
+    ],
   )
 
   return <PlaybookContext.Provider value={value}>{children}</PlaybookContext.Provider>
