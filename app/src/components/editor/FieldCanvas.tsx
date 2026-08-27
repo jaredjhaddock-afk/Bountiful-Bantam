@@ -45,9 +45,9 @@ export function FieldCanvas({
       style={{ width: '100%', height: '100%', background: '#161a1d' }}
     >
       {YARD_LINES.map((y) => (
-        <line key={y} x1={0} y1={y} x2={100} y2={y} stroke="#3a434d" strokeWidth={0.15} />
+        <line key={y} x1={0} y1={y} x2={100} y2={y} stroke="#4d5964" strokeWidth={0.25} />
       ))}
-      <line x1={0} y1={30} x2={100} y2={30} stroke="#5a6470" strokeWidth={0.25} />
+      <line x1={0} y1={30} x2={100} y2={30} stroke="#8a94a0" strokeWidth={0.35} />
 
       {players.map((p) => (
         <RoutePath key={`route-${p.id}`} origin={{ x: p.x, y: p.y }} player={p} />
