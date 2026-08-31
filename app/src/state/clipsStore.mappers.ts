@@ -10,6 +10,7 @@ export interface Clip {
   inPoint: number | null
   outPoint: number | null
   drawingStrokes: Stroke[]
+  gameId: string | null
 }
 
 export interface ClipRow {
@@ -20,6 +21,7 @@ export interface ClipRow {
   in_point: number | null
   out_point: number | null
   drawing_strokes: Stroke[]
+  game_id: string | null
 }
 
 export function rowToClip(row: ClipRow): Clip {
@@ -31,6 +33,7 @@ export function rowToClip(row: ClipRow): Clip {
     inPoint: row.in_point,
     outPoint: row.out_point,
     drawingStrokes: row.drawing_strokes ?? [],
+    gameId: row.game_id,
   }
 }
 
@@ -41,6 +44,7 @@ export function clipToInsertRow(clip: Clip, teamId: string) {
     source_type: clip.sourceType,
     source_ref: clip.sourceRef,
     title: clip.title,
+    game_id: clip.gameId,
   }
 }
 
@@ -50,5 +54,6 @@ export function clipToUpdateRow(clip: Clip) {
     in_point: clip.inPoint,
     out_point: clip.outPoint,
     drawing_strokes: clip.drawingStrokes,
+    game_id: clip.gameId,
   }
 }
