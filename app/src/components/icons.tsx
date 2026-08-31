@@ -284,3 +284,9 @@ export const FileIcon = (p: IconProps) => (
     <path d="M15 2v5h5" />
   </svg>
 )
+export const CalendarIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="3" y="5" width="18" height="16" rx="2" />
+    <path d="M3 9h18M8 3v4M16 3v4" />
+  </svg>
+)
