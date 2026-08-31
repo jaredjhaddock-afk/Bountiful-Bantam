@@ -37,10 +37,9 @@ function AuthenticatedApp() {
 
   // Runs once — the share target (if any) was stashed by main.tsx before this ever
   // mounted, since a magic-link auth redirect may not preserve the original URL's query
-  // params. Reading it clears the underlying storage, so this must only happen once;
-  // the ref (not just checking `pendingTarget`) guards against StrictMode's dev-only
-  // double-invoke of this effect, which would otherwise consume-and-lose it on the
-  // second invocation before the first one's state update had a chance to matter.
+  // params. `consumePendingShareTarget` already clears storage on its first read, so a
+  // StrictMode double-invoke would naturally no-op on its own; the ref just makes that
+  // "only ever consume once" intent explicit rather than relying on that side effect.
   useEffect(() => {
     if (consumedRef.current) return
     consumedRef.current = true

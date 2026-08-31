@@ -78,6 +78,15 @@ export function VideoReviewPage({ nav, pendingTarget, onPendingTargetHandled }: 
   // `games`/`clips` keep changing identity as data streams in from Supabase.
   useEffect(() => {
     if (!pendingTarget || gamesLoading || clipsLoading) return
+    // Games and clips are independent queries that can resolve at different times, so
+    // it's possible for the user to have already navigated away from the initial Games
+    // screen by the time this is ready to act (e.g. clips loaded first, they opened a
+    // clip from Unassigned). Don't yank them out of what they're doing — drop the link
+    // rather than surprising them with an override later.
+    if (mode !== 'games') {
+      onPendingTargetHandled()
+      return
+    }
     const game = games.find((g) => g.id === pendingTarget.gameId) ?? null
     if (!game) {
       onPendingTargetHandled()
@@ -100,7 +109,7 @@ export function VideoReviewPage({ nav, pendingTarget, onPendingTargetHandled }: 
       }
     }
     onPendingTargetHandled()
-  }, [pendingTarget, gamesLoading, clipsLoading, games, clips, onPendingTargetHandled])
+  }, [pendingTarget, gamesLoading, clipsLoading, mode, games, clips, onPendingTargetHandled])
 
   const handleReopenFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
