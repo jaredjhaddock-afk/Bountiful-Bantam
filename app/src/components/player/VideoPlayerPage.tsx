@@ -12,7 +12,10 @@ import { DeleteConfirmModal } from '../playbook/DeleteConfirmModal'
 
 interface VideoPlayerPageProps {
   source: VideoSource
+  gameId: string | null
+  clipId: string
   initialTrim?: { inPoint: number; outPoint: number }
+  initialSeekTime?: number
   initialStrokes?: Stroke[]
   onStateChange?: (state: { inPoint: number; outPoint: number; drawingStrokes: Stroke[] }) => void
   bookmarks: Bookmark[]
@@ -23,7 +26,10 @@ interface VideoPlayerPageProps {
 
 export function VideoPlayerPage({
   source,
+  gameId,
+  clipId,
   initialTrim,
+  initialSeekTime,
   initialStrokes,
   onStateChange,
   bookmarks,
@@ -130,6 +136,17 @@ export function VideoPlayerPage({
     controllerRef.current?.seekTo(t)
     setCurrentTime(t)
   }, [])
+
+  // Applies a share link's target timestamp exactly once, as soon as the video's real
+  // duration is known (seeking is unreliable before metadata has loaded). The ref guard
+  // matters because `duration` and `seekTo`'s own `currentTime` update can both change
+  // again later — without it, a later recalculation would reseek to the same spot.
+  const initialSeekAppliedRef = useRef(false)
+  useEffect(() => {
+    if (initialSeekAppliedRef.current || initialSeekTime == null || duration <= 0) return
+    initialSeekAppliedRef.current = true
+    seekTo(initialSeekTime)
+  }, [initialSeekTime, duration, seekTo])
 
   const handlePrevBookmark = useCallback(() => {
     const target = findAdjacentBookmark(bookmarks, currentTime, -1)
@@ -252,6 +269,8 @@ export function VideoPlayerPage({
         />
         <BookmarksDrawer
           bookmarks={bookmarks}
+          gameId={gameId}
+          clipId={clipId}
           expanded={drawerExpanded}
           onToggleExpanded={() => setDrawerExpanded((v) => !v)}
           focusBookmarkId={focusBookmarkId}

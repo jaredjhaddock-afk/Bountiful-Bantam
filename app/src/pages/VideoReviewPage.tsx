@@ -178,6 +178,8 @@ export function VideoReviewPage({ nav }: VideoReviewPageProps) {
           // instead of carrying over the previous clip's in/out points and drawing strokes.
           key={activeClip?.id ?? 'local-file'}
           source={source}
+          gameId={selectedGameId}
+          clipId={activeClip?.id ?? ''}
           initialTrim={activeClip?.inPoint != null && activeClip?.outPoint != null ? { inPoint: activeClip.inPoint, outPoint: activeClip.outPoint } : undefined}
           initialStrokes={activeClip?.drawingStrokes}
           onStateChange={activeClip ? handleClipStateChange : undefined}

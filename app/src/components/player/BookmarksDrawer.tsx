@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Bookmark } from '../../state/bookmarksStore'
 import { formatTimestamp } from '../../lib/bookmarkUtils'
-import { TrashIcon } from '../icons'
+import { buildMomentShareUrl } from '../../lib/shareLink'
+import { CheckIcon, ShareIcon, TrashIcon } from '../icons'
 
 interface BookmarksDrawerProps {
   bookmarks: Bookmark[]
@@ -15,6 +16,11 @@ interface BookmarksDrawerProps {
   onSeek: (timeSeconds: number) => void
   onUpdateNote: (id: string, note: string) => void
   onDeleteRequest: (bookmark: Bookmark) => void
+  /** Needed to build a moment share link. Sharing a specific bookmark only makes sense
+   *  once its clip belongs to a game — an "Unassigned" clip has no game to deep-link
+   *  into, so `gameId` is null there and the per-row share button doesn't render. */
+  gameId: string | null
+  clipId: string
 }
 
 function BookmarkRow({
@@ -24,6 +30,8 @@ function BookmarkRow({
   onSeek,
   onUpdateNote,
   onDeleteRequest,
+  onShare,
+  justCopied,
 }: {
   bookmark: Bookmark
   autoFocus: boolean
@@ -31,6 +39,8 @@ function BookmarkRow({
   onSeek: (timeSeconds: number) => void
   onUpdateNote: (id: string, note: string) => void
   onDeleteRequest: (bookmark: Bookmark) => void
+  onShare: (() => void) | null
+  justCopied: boolean
 }) {
   const [editing, setEditing] = useState(autoFocus)
   const [draft, setDraft] = useState(bookmark.note)
@@ -82,6 +92,11 @@ function BookmarkRow({
           {bookmark.note || <span className="text-muted">Add a note…</span>}
         </button>
       )}
+      {onShare && (
+        <button onClick={onShare} aria-label="Copy link to this moment" className="shrink-0 text-muted hover:text-accent-teal">
+          {justCopied ? <CheckIcon width={14} height={14} /> : <ShareIcon width={14} height={14} />}
+        </button>
+      )}
       <button onClick={() => onDeleteRequest(bookmark)} aria-label="Delete bookmark" className="shrink-0 text-muted hover:text-alert-red">
         <TrashIcon width={14} height={14} />
       </button>
@@ -98,7 +113,24 @@ export function BookmarksDrawer({
   onSeek,
   onUpdateNote,
   onDeleteRequest,
+  gameId,
+  clipId,
 }: BookmarksDrawerProps) {
+  const [copiedBookmarkId, setCopiedBookmarkId] = useState<string | null>(null)
+  const copiedTimeoutRef = useRef<number | null>(null)
+
+  const handleShare = async (bookmark: Bookmark) => {
+    if (!gameId) return
+    try {
+      await navigator.clipboard.writeText(buildMomentShareUrl(gameId, clipId, bookmark.timeSeconds))
+      setCopiedBookmarkId(bookmark.id)
+      if (copiedTimeoutRef.current) window.clearTimeout(copiedTimeoutRef.current)
+      copiedTimeoutRef.current = window.setTimeout(() => setCopiedBookmarkId(null), 1500)
+    } catch (error) {
+      console.error('Failed to copy share link', error)
+    }
+  }
+
   return (
     <div className="border-t border-white/10">
       <button
@@ -123,6 +155,8 @@ export function BookmarksDrawer({
                 onSeek={onSeek}
                 onUpdateNote={onUpdateNote}
                 onDeleteRequest={onDeleteRequest}
+                onShare={gameId ? () => handleShare(b) : null}
+                justCopied={copiedBookmarkId === b.id}
               />
             ))
           )}
