@@ -3,9 +3,12 @@ import { AppShell } from '../components/layout/AppShell'
 import { VideoSourceModal } from '../components/source/VideoSourceModal'
 import { VideoPlayerPage } from '../components/player/VideoPlayerPage'
 import { ClipLibrary } from '../components/source/ClipLibrary'
+import { GamesLibrary } from '../components/source/GamesLibrary'
 import { useClips, type Clip } from '../state/clipsStore'
+import { useGames } from '../state/gamesStore'
 import { useClipBookmarks } from '../state/bookmarksStore'
 import { fileFingerprint } from '../lib/bookmarkUtils'
+import { gameLabel } from '../lib/gameLabel'
 import type { Stroke, VideoSource } from '../types/video'
 
 interface VideoReviewPageProps {
@@ -21,26 +24,36 @@ function clipToSource(clip: Clip): VideoSource {
   throw new Error('File clips must be reopened via the file picker, not clipToSource')
 }
 
-type Mode = 'library' | 'add' | 'player'
+type Mode = 'games' | 'clips' | 'add' | 'player'
 
 export function VideoReviewPage({ nav }: VideoReviewPageProps) {
   const { createClip, updateClip, findOrCreateFileClip } = useClips()
-  const [mode, setMode] = useState<Mode>('library')
+  const { games } = useGames()
+  const [mode, setMode] = useState<Mode>('games')
+  // Meaningful only while mode !== 'games': null means the "Unassigned" bucket.
+  const [selectedGameId, setSelectedGameId] = useState<string | null>(null)
   const [source, setSource] = useState<VideoSource | null>(null)
   const [activeClip, setActiveClip] = useState<Clip | null>(null)
   const { bookmarks, createBookmark, updateBookmarkNote, deleteBookmark } = useClipBookmarks(activeClip?.id ?? null)
 
+  const selectedGame = games.find((g) => g.id === selectedGameId) ?? null
+
+  const handleOpenGame = (gameId: string | null) => {
+    setSelectedGameId(gameId)
+    setMode('clips')
+  }
+
   const handleNewSource = (newSource: VideoSource) => {
     if (newSource.type === 'file') {
       const fingerprint = fileFingerprint(newSource.fileName ?? 'untitled', newSource.fileSize ?? 0)
-      const clip = findOrCreateFileClip(fingerprint, newSource.fileName ?? 'Untitled')
+      const clip = findOrCreateFileClip(fingerprint, newSource.fileName ?? 'Untitled', selectedGameId)
       setActiveClip(clip)
       setSource(newSource)
       setMode('player')
       return
     }
     const ref = newSource.type === 'youtube' ? (newSource.youtubeId ?? newSource.url) : newSource.url
-    const clip = createClip({ sourceType: newSource.type, sourceRef: ref, title: newSource.fileName ?? null })
+    const clip = createClip({ sourceType: newSource.type, sourceRef: ref, title: newSource.fileName ?? null, gameId: selectedGameId })
     setActiveClip(clip)
     setSource(newSource)
     setMode('player')
@@ -108,11 +121,18 @@ export function VideoReviewPage({ nav }: VideoReviewPageProps) {
   // explicit back-navigation.
   useEffect(() => flushPendingClipUpdate, [flushPendingClipUpdate])
 
+  // 'clips' backs out to the games list; 'add' and 'player' both back out to the clip
+  // list they were opened from (the game stays selected).
   const handleBack = () => {
     flushPendingClipUpdate()
+    if (mode === 'clips') {
+      setMode('games')
+      setSelectedGameId(null)
+      return
+    }
     setSource(null)
     setActiveClip(null)
-    setMode('library')
+    setMode('clips')
   }
 
   // Stable across re-renders (identity only changes if `updateClip` itself changes, which it
@@ -144,10 +164,13 @@ export function VideoReviewPage({ nav }: VideoReviewPageProps) {
     [updateClip],
   )
 
+  const title = mode === 'games' ? 'Video Review' : selectedGame ? gameLabel(selectedGame) : 'Unassigned'
+
   return (
-    <AppShell title="Video Review" nav={nav} onBack={mode !== 'library' ? handleBack : undefined}>
+    <AppShell title={title} nav={nav} onBack={mode !== 'games' ? handleBack : undefined}>
       <input ref={reopenFileInputRef} type="file" accept="video/*" className="hidden" onChange={handleReopenFileSelected} />
-      {mode === 'library' && <ClipLibrary onOpenClip={handleOpenClip} onAddNew={() => setMode('add')} />}
+      {mode === 'games' && <GamesLibrary onOpenGame={handleOpenGame} />}
+      {mode === 'clips' && <ClipLibrary gameId={selectedGameId} onOpenClip={handleOpenClip} onAddNew={() => setMode('add')} />}
       {mode === 'add' && <VideoSourceModal onSelect={handleNewSource} />}
       {mode === 'player' && source && (
         <VideoPlayerPage
