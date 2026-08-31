@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useGames, type Game } from '../../state/gamesStore'
 import { useClips } from '../../state/clipsStore'
 import { gameLabel } from '../../lib/gameLabel'
-import { CalendarIcon, PlusIcon, TrashIcon } from '../icons'
+import { buildGameShareUrl } from '../../lib/shareLink'
+import { CalendarIcon, CheckIcon, PlusIcon, ShareIcon, TrashIcon } from '../icons'
 import { DeleteConfirmModal } from '../playbook/DeleteConfirmModal'
 import { NewGameModal } from './NewGameModal'
 
@@ -16,12 +17,25 @@ export function GamesLibrary({ onOpenGame }: GamesLibraryProps) {
   const [addingGame, setAddingGame] = useState(false)
   const [deleting, setDeleting] = useState<Game | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [copiedGameId, setCopiedGameId] = useState<string | null>(null)
+  const copiedTimeoutRef = useRef<number | null>(null)
 
   // Clips are already loaded in full by ClipsProvider (used across the whole Video
   // Review flow at once), so counting per game here is a plain client-side reduce —
   // no extra query needed, unlike bookmark counts which come from a table this
   // component doesn't otherwise load.
   const clipCount = (gameId: string | null) => clips.filter((c) => c.gameId === gameId).length
+
+  const handleShare = async (game: Game) => {
+    try {
+      await navigator.clipboard.writeText(buildGameShareUrl(game.id))
+      setCopiedGameId(game.id)
+      if (copiedTimeoutRef.current) window.clearTimeout(copiedTimeoutRef.current)
+      copiedTimeoutRef.current = window.setTimeout(() => setCopiedGameId(null), 1500)
+    } catch (error) {
+      console.error('Failed to copy share link', error)
+    }
+  }
 
   const confirmDelete = async () => {
     if (!deleting) return
@@ -58,16 +72,21 @@ export function GamesLibrary({ onOpenGame }: GamesLibraryProps) {
               </div>
               <div className="truncate text-sm text-text">{gameLabel(game)}</div>
             </button>
-            <button
-              onClick={() => {
-                setDeleting(game)
-                setDeleteError(null)
-              }}
-              aria-label="Delete game"
-              className="self-end text-muted hover:text-alert-red"
-            >
-              <TrashIcon width={14} height={14} />
-            </button>
+            <div className="flex items-center justify-end gap-3">
+              <button onClick={() => handleShare(game)} aria-label="Copy link to this game" className="text-muted hover:text-accent-teal">
+                {copiedGameId === game.id ? <CheckIcon width={14} height={14} /> : <ShareIcon width={14} height={14} />}
+              </button>
+              <button
+                onClick={() => {
+                  setDeleting(game)
+                  setDeleteError(null)
+                }}
+                aria-label="Delete game"
+                className="text-muted hover:text-alert-red"
+              >
+                <TrashIcon width={14} height={14} />
+              </button>
+            </div>
           </div>
         ))}
         <button
