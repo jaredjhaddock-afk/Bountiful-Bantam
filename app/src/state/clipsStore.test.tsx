@@ -15,6 +15,7 @@ const EXISTING_FILE_CLIP = {
   in_point: null,
   out_point: null,
   drawing_strokes: [],
+  game_id: null,
 }
 
 vi.mock('../lib/supabaseClient', () => ({
@@ -72,5 +73,25 @@ describe('findOrCreateFileClip', () => {
       second = result.current.findOrCreateFileClip('cam3newfile.mp4:55555555', 'cam3newfile.mp4')
     })
     expect(second!.id).toBe(first!.id)
+  })
+
+  it('assigns the gameId to a newly created clip', async () => {
+    const { result } = renderHook(() => useClips(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    let created
+    act(() => {
+      created = result.current.findOrCreateFileClip('newfile.mp4:12345', 'newfile.mp4', 'game-1')
+    })
+    expect(created!.gameId).toBe('game-1')
+  })
+
+  it('defaults gameId to null when not provided', async () => {
+    const { result } = renderHook(() => useClips(), { wrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    let created
+    act(() => {
+      created = result.current.findOrCreateFileClip('another.mp4:999', 'another.mp4')
+    })
+    expect(created!.gameId).toBeNull()
   })
 })

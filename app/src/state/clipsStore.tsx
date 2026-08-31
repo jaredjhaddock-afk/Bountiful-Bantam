@@ -8,9 +8,9 @@ export type { Clip } from './clipsStore.mappers'
 interface ClipsContextValue {
   loading: boolean
   clips: Clip[]
-  createClip: (input: { sourceType: ClipSourceType; sourceRef: string; title?: string | null }) => Clip
+  createClip: (input: { sourceType: ClipSourceType; sourceRef: string; title?: string | null; gameId?: string | null }) => Clip
   updateClip: (clip: Clip) => void
-  findOrCreateFileClip: (fingerprint: string, fileName: string) => Clip
+  findOrCreateFileClip: (fingerprint: string, fileName: string, gameId?: string | null) => Clip
 }
 
 const ClipsContext = createContext<ClipsContextValue | null>(null)
@@ -40,8 +40,17 @@ export function ClipsProvider({ children }: { children: ReactNode }) {
   }, [teamId])
 
   const createClip: ClipsContextValue['createClip'] = useCallback(
-    ({ sourceType, sourceRef, title }) => {
-      const clip: Clip = { id: crypto.randomUUID(), sourceType, sourceRef, title: title ?? null, inPoint: null, outPoint: null, drawingStrokes: [] }
+    ({ sourceType, sourceRef, title, gameId }) => {
+      const clip: Clip = {
+        id: crypto.randomUUID(),
+        sourceType,
+        sourceRef,
+        title: title ?? null,
+        inPoint: null,
+        outPoint: null,
+        drawingStrokes: [],
+        gameId: gameId ?? null,
+      }
       setClips((prev) => [...prev, clip])
       if (teamId) {
         supabase
@@ -59,12 +68,12 @@ export function ClipsProvider({ children }: { children: ReactNode }) {
   const pendingFileClipsRef = useRef<Map<string, Clip>>(new Map())
 
   const findOrCreateFileClip: ClipsContextValue['findOrCreateFileClip'] = useCallback(
-    (fingerprint, fileName) => {
+    (fingerprint, fileName, gameId) => {
       const existing = clips.find((c) => c.sourceType === 'file' && c.sourceRef === fingerprint)
       if (existing) return existing
       const pending = pendingFileClipsRef.current.get(fingerprint)
       if (pending) return pending
-      const created = createClip({ sourceType: 'file', sourceRef: fingerprint, title: fileName })
+      const created = createClip({ sourceType: 'file', sourceRef: fingerprint, title: fileName, gameId })
       pendingFileClipsRef.current.set(fingerprint, created)
       return created
     },
