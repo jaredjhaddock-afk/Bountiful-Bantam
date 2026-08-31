@@ -4,6 +4,7 @@ import { LoginScreen } from './auth/LoginScreen'
 import { JoinTeamScreen } from './auth/JoinTeamScreen'
 import { PlaybookProvider } from './state/playbookStore'
 import { ClipsProvider } from './state/clipsStore'
+import { GamesProvider } from './state/gamesStore'
 import { VideoReviewPage } from './pages/VideoReviewPage'
 import { PlaybookPage } from './pages/PlaybookPage'
 
@@ -35,7 +36,9 @@ function AuthenticatedApp() {
   return (
     <PlaybookProvider>
       <ClipsProvider>
-        {section === 'video' ? <VideoReviewPage nav={nav} /> : <PlaybookPage nav={nav} />}
+        <GamesProvider>
+          {section === 'video' ? <VideoReviewPage nav={nav} /> : <PlaybookPage nav={nav} />}
+        </GamesProvider>
       </ClipsProvider>
     </PlaybookProvider>
   )
