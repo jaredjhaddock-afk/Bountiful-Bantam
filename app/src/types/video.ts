@@ -6,6 +6,11 @@ export interface VideoSource {
   youtubeId?: string
   fileName?: string
   fileSize?: number
+  /** Only meaningful for a freshly-picked 'drive' source, set once by VideoSourceModal
+   *  right after a successful Picker selection so the very first playback resolution
+   *  can skip straight to the authenticated fetch. Never persisted — clip mappers don't
+   *  read this field, so it never reaches Supabase. */
+  driveAccessToken?: string
 }
 
 export interface Point {
