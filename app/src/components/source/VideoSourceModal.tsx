@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import type { VideoSource } from '../../types/video'
 import { parseYouTubeId } from '../../lib/youtube'
+import { openDrivePicker, requestDriveAccessToken } from '../../lib/googleDrive'
 import { DriveIcon, UploadIcon, YoutubeIcon } from '../icons'
 
 interface VideoSourceModalProps {
@@ -11,6 +12,8 @@ export function VideoSourceModal({ onSelect }: VideoSourceModalProps) {
   const [tab, setTab] = useState<'youtube' | 'file' | 'drive'>('youtube')
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [driveConnecting, setDriveConnecting] = useState(false)
+  const [driveError, setDriveError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleYoutubeSubmit = () => {
@@ -27,6 +30,21 @@ export function VideoSourceModal({ onSelect }: VideoSourceModalProps) {
     const file = e.target.files?.[0]
     if (!file) return
     onSelect({ type: 'file', url: URL.createObjectURL(file), fileName: file.name, fileSize: file.size })
+  }
+
+  const handleConnectDrive = async () => {
+    setDriveError(null)
+    setDriveConnecting(true)
+    try {
+      const token = await requestDriveAccessToken()
+      const picked = await openDrivePicker(token)
+      if (!picked) return
+      onSelect({ type: 'drive', url: picked.fileId, fileName: picked.name, fileSize: picked.sizeBytes, driveAccessToken: token })
+    } catch {
+      setDriveError('Could not connect to Google Drive. Try again.')
+    } finally {
+      setDriveConnecting(false)
+    }
   }
 
   return (
@@ -85,11 +103,14 @@ export function VideoSourceModal({ onSelect }: VideoSourceModalProps) {
         {tab === 'drive' && (
           <div className="flex flex-col items-center gap-3 rounded-standard border border-dashed border-white/15 py-8 text-center">
             <DriveIcon width={28} height={28} />
-            <p className="px-6 text-xs text-muted">
-              Connecting a real Google Drive account requires OAuth/Picker API setup not available in this demo build.
-            </p>
-            <button disabled className="cursor-not-allowed rounded-standard bg-toolbar px-4 py-2 text-sm font-bold text-muted">
-              Connect Google Drive
+            <p className="px-6 text-xs text-muted">Pick a video from your Google Drive.</p>
+            {driveError && <p className="px-6 text-xs text-scrub-fill">{driveError}</p>}
+            <button
+              onClick={handleConnectDrive}
+              disabled={driveConnecting}
+              className="rounded-standard bg-accent-teal px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {driveConnecting ? 'Connecting…' : 'Connect Google Drive'}
             </button>
           </div>
         )}
