@@ -9,10 +9,13 @@ import { useGames } from '../state/gamesStore'
 import { useClipBookmarks } from '../state/bookmarksStore'
 import { fileFingerprint } from '../lib/bookmarkUtils'
 import { gameLabel } from '../lib/gameLabel'
+import type { ShareTarget } from '../lib/shareLink'
 import type { Stroke, VideoSource } from '../types/video'
 
 interface VideoReviewPageProps {
   nav: React.ReactNode
+  pendingTarget: ShareTarget | null
+  onPendingTargetHandled: () => void
 }
 
 function clipToSource(clip: Clip): VideoSource {
@@ -26,14 +29,15 @@ function clipToSource(clip: Clip): VideoSource {
 
 type Mode = 'games' | 'clips' | 'add' | 'player'
 
-export function VideoReviewPage({ nav }: VideoReviewPageProps) {
-  const { createClip, updateClip, findOrCreateFileClip } = useClips()
-  const { games } = useGames()
+export function VideoReviewPage({ nav, pendingTarget, onPendingTargetHandled }: VideoReviewPageProps) {
+  const { clips, loading: clipsLoading, createClip, updateClip, findOrCreateFileClip } = useClips()
+  const { games, loading: gamesLoading } = useGames()
   const [mode, setMode] = useState<Mode>('games')
   // Meaningful only while mode !== 'games': null means the "Unassigned" bucket.
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null)
   const [source, setSource] = useState<VideoSource | null>(null)
   const [activeClip, setActiveClip] = useState<Clip | null>(null)
+  const [initialSeekTime, setInitialSeekTime] = useState<number | undefined>(undefined)
   const { bookmarks, createBookmark, updateBookmarkNote, deleteBookmark } = useClipBookmarks(activeClip?.id ?? null)
 
   const selectedGame = games.find((g) => g.id === selectedGameId) ?? null
@@ -44,6 +48,7 @@ export function VideoReviewPage({ nav }: VideoReviewPageProps) {
   }
 
   const handleNewSource = (newSource: VideoSource) => {
+    setInitialSeekTime(undefined)
     if (newSource.type === 'file') {
       const fingerprint = fileFingerprint(newSource.fileName ?? 'untitled', newSource.fileSize ?? 0)
       const clip = findOrCreateFileClip(fingerprint, newSource.fileName ?? 'Untitled', selectedGameId)
@@ -66,6 +71,37 @@ export function VideoReviewPage({ nav }: VideoReviewPageProps) {
   const reopenFileInputRef = useRef<HTMLInputElement>(null)
   const [pendingFileReopen, setPendingFileReopen] = useState<Clip | null>(null)
 
+  // Resolves a share link's target once games and clips have both loaded. A game id
+  // that isn't found (wrong team, deleted, stale link) falls back to the normal Games
+  // list; a clip id not found within that game falls back to that game's clip list.
+  // Either branch calls onPendingTargetHandled so this never re-runs, even though
+  // `games`/`clips` keep changing identity as data streams in from Supabase.
+  useEffect(() => {
+    if (!pendingTarget || gamesLoading || clipsLoading) return
+    const game = games.find((g) => g.id === pendingTarget.gameId) ?? null
+    if (!game) {
+      onPendingTargetHandled()
+      return
+    }
+    setSelectedGameId(game.id)
+    setMode('clips')
+    if (pendingTarget.clipId) {
+      const clip = clips.find((c) => c.id === pendingTarget.clipId && c.gameId === game.id) ?? null
+      if (clip) {
+        setInitialSeekTime(pendingTarget.timeSeconds ?? undefined)
+        if (clip.sourceType === 'file') {
+          setPendingFileReopen(clip)
+          reopenFileInputRef.current?.click()
+        } else {
+          setActiveClip(clip)
+          setSource(clipToSource(clip))
+          setMode('player')
+        }
+      }
+    }
+    onPendingTargetHandled()
+  }, [pendingTarget, gamesLoading, clipsLoading, games, clips, onPendingTargetHandled])
+
   const handleReopenFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -78,6 +114,7 @@ export function VideoReviewPage({ nav }: VideoReviewPageProps) {
 
   const handleOpenClip = (clip: Clip) => {
     flushPendingClipUpdate()
+    setInitialSeekTime(undefined)
     if (clip.sourceType === 'file') {
       setPendingFileReopen(clip)
       reopenFileInputRef.current?.click()
@@ -180,6 +217,7 @@ export function VideoReviewPage({ nav }: VideoReviewPageProps) {
           source={source}
           gameId={selectedGameId}
           clipId={activeClip?.id ?? ''}
+          initialSeekTime={initialSeekTime}
           initialTrim={activeClip?.inPoint != null && activeClip?.outPoint != null ? { inPoint: activeClip.inPoint, outPoint: activeClip.outPoint } : undefined}
           initialStrokes={activeClip?.drawingStrokes}
           onStateChange={activeClip ? handleClipStateChange : undefined}

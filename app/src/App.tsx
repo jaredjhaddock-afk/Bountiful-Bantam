@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { LoginScreen } from './auth/LoginScreen'
 import { JoinTeamScreen } from './auth/JoinTeamScreen'
@@ -7,6 +7,7 @@ import { ClipsProvider } from './state/clipsStore'
 import { GamesProvider } from './state/gamesStore'
 import { VideoReviewPage } from './pages/VideoReviewPage'
 import { PlaybookPage } from './pages/PlaybookPage'
+import { consumePendingShareTarget, type ShareTarget } from './lib/shareLink'
 
 type Section = 'video' | 'playbook'
 
@@ -31,13 +32,38 @@ function NavSwitcher({ section, onChange }: { section: Section; onChange: (s: Se
 
 function AuthenticatedApp() {
   const [section, setSection] = useState<Section>('video')
+  const [pendingTarget, setPendingTarget] = useState<ShareTarget | null>(null)
+  const consumedRef = useRef(false)
+
+  // Runs once — the share target (if any) was stashed by main.tsx before this ever
+  // mounted, since a magic-link auth redirect may not preserve the original URL's query
+  // params. Reading it clears the underlying storage, so this must only happen once;
+  // the ref (not just checking `pendingTarget`) guards against StrictMode's dev-only
+  // double-invoke of this effect, which would otherwise consume-and-lose it on the
+  // second invocation before the first one's state update had a chance to matter.
+  useEffect(() => {
+    if (consumedRef.current) return
+    consumedRef.current = true
+    const target = consumePendingShareTarget()
+    if (target) {
+      setPendingTarget(target)
+      setSection('video')
+    }
+  }, [])
+
+  const handlePendingTargetHandled = useCallback(() => setPendingTarget(null), [])
+
   const nav = <NavSwitcher section={section} onChange={setSection} />
 
   return (
     <PlaybookProvider>
       <ClipsProvider>
         <GamesProvider>
-          {section === 'video' ? <VideoReviewPage nav={nav} /> : <PlaybookPage nav={nav} />}
+          {section === 'video' ? (
+            <VideoReviewPage nav={nav} pendingTarget={pendingTarget} onPendingTargetHandled={handlePendingTargetHandled} />
+          ) : (
+            <PlaybookPage nav={nav} />
+          )}
         </GamesProvider>
       </ClipsProvider>
     </PlaybookProvider>
