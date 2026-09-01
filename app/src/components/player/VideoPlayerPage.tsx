@@ -173,12 +173,13 @@ export function VideoPlayerPage({
   // Ctrl+Shift+<digit> (confirmed by capturing raw KeyboardEvents), with a real keydown/keyup
   // pair per press (OS auto-repeats keydown while held, so `repeat` is used to fire hold-start
   // exactly once). Digit-to-button mapping: 1=Full 2=Prev-bookmark 3=Next-bookmark 4=Rev
-  // 5=Slow 6=Rew 7=FF 8=Tag 9=Play. Rev/Slow/Rew/FF resume normal forward playback on release
-  // (not pause), matching how the physical remote's hold buttons behave, unlike the on-screen
-  // hold buttons which pause. Prev/Next used to switch between saved clips; they now step
-  // between this clip's bookmarks instead — there's no on-screen equivalent for clip-switching
-  // either, so nothing is lost that existed anywhere else, and bookmark navigation is far more
-  // useful during actual film review.
+  // 5=Slow 6=Rew 7=FF 8=Tag 9=Play. Rev/Slow (the two 0.4x buttons, used for frame-by-frame film
+  // review) pause on release, same as the on-screen hold buttons — releasing freezes on whatever
+  // frame it lands on. Rew/FF (the two 4x buttons, used for scrubbing through the timeline) still
+  // resume normal forward playback on release. Prev/Next used to switch between saved clips; they
+  // now step between this clip's bookmarks instead — there's no on-screen equivalent for
+  // clip-switching either, so nothing is lost that existed anywhere else, and bookmark navigation
+  // is far more useful during actual film review.
   useEffect(() => {
     const holdActions: Record<string, ReturnType<typeof useHoldScrub>> = {
       Digit4: slowRev,
@@ -186,6 +187,9 @@ export function VideoPlayerPage({
       Digit6: fastRev,
       Digit7: fastFwd,
     }
+    // The two slow (0.4x) buttons pause on release, for frame-accurate film review; the two
+    // fast (4x) buttons keep resuming normal playback on release.
+    const pauseOnReleaseCodes = new Set(['Digit4', 'Digit5'])
     const tapActions: Record<string, (() => void) | undefined> = {
       Digit1: toggleFullscreen,
       Digit2: handlePrevBookmark,
@@ -215,7 +219,7 @@ export function VideoPlayerPage({
       const hold = holdActions[e.code]
       if (!hold) return
       e.preventDefault()
-      hold.stop('play')
+      hold.stop(pauseOnReleaseCodes.has(e.code) ? 'pause' : 'play')
     }
 
     window.addEventListener('keydown', handleKeyDown)
