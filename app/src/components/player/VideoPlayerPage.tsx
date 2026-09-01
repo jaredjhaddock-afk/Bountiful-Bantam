@@ -206,6 +206,8 @@ export function VideoPlayerPage({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isRemoteChord(e) || isEditableTarget(e.target)) return
+      // eslint-disable-next-line no-console
+      console.log('[remote] keydown', e.code)
       const hold = holdActions[e.code]
       const tap = tapActions[e.code]
       if (!hold && !tap) return
