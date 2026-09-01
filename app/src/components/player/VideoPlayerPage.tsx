@@ -74,6 +74,35 @@ export function VideoPlayerPage({
     else containerRef.current?.requestFullscreen()
   }, [])
 
+  // Fullscreen controls overlay the video and auto-hide after a couple seconds of no mouse
+  // movement, matching standard video-player behavior — outside fullscreen the controls
+  // just sit in normal document flow below the video and are always visible.
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current)
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+  }, [])
+
+  const [controlsVisible, setControlsVisible] = useState(true)
+  const hideControlsTimeoutRef = useRef<number | null>(null)
+  const showControlsTemporarily = useCallback(() => {
+    setControlsVisible(true)
+    if (hideControlsTimeoutRef.current != null) window.clearTimeout(hideControlsTimeoutRef.current)
+    hideControlsTimeoutRef.current = window.setTimeout(() => setControlsVisible(false), 2500)
+  }, [])
+  useEffect(() => {
+    if (!isFullscreen) {
+      setControlsVisible(true)
+      if (hideControlsTimeoutRef.current != null) window.clearTimeout(hideControlsTimeoutRef.current)
+      return
+    }
+    showControlsTemporarily()
+    return () => {
+      if (hideControlsTimeoutRef.current != null) window.clearTimeout(hideControlsTimeoutRef.current)
+    }
+  }, [isFullscreen, showControlsTemporarily])
+
   // Hudl remote's Tag button cycles between marking the in-point and the out-point (then
   // enabling loop), rather than needing two separate buttons like the on-screen In/Out controls.
   const [tagStage, setTagStage] = useState<'in' | 'out'>('in')
@@ -232,63 +261,104 @@ export function VideoPlayerPage({
     }
   }, [slowRev, slowFwd, fastRev, fastFwd, toggleFullscreen, handlePrevBookmark, handleNextBookmark, handleTag, togglePlay])
 
+  const scrubAndControls = (
+    <>
+      <ScrubBar
+        duration={duration}
+        currentTime={currentTime}
+        inPoint={inPoint}
+        outPoint={outPoint || duration}
+        onSeek={seekTo}
+        onSetIn={setInPoint}
+        onSetOut={setOutPoint}
+      />
+      <ControlBar
+        playing={playing}
+        onTogglePlay={togglePlay}
+        slowRev={slowRev}
+        fastRev={fastRev}
+        fastFwd={fastFwd}
+        slowFwd={slowFwd}
+        onSetIn={() => setInPoint(currentTime)}
+        onSetOut={() => setOutPoint(currentTime)}
+        looping={looping}
+        onToggleLoop={() => setLooping((v) => !v)}
+        drawMode={drawMode}
+        onToggleDraw={() => setDrawMode((v) => !v)}
+        onResetDrawing={() => setStrokes([])}
+        currentTime={currentTime}
+        duration={duration}
+        onBookmark={handleBookmarkClick}
+        onPrevBookmark={handlePrevBookmark}
+        onNextBookmark={handleNextBookmark}
+      />
+    </>
+  )
+
+  const bookmarksDrawerProps = {
+    bookmarks,
+    gameId,
+    clipId,
+    focusBookmarkId,
+    onFocusConsumed: () => setFocusBookmarkId(null),
+    onSeek: seekTo,
+    onUpdateNote: onUpdateBookmarkNote,
+    onDeleteRequest: (bookmark: Bookmark) => {
+      setDeletingBookmark(bookmark)
+      setDeleteBookmarkError(null)
+    },
+  }
+
   return (
-    <div ref={containerRef} className="relative flex h-full flex-col">
-      <div className="relative flex-1 bg-black">
-        <VideoStage
-          ref={controllerRef}
-          source={source}
-          onDurationChange={setDuration}
-          onTimeUpdate={setCurrentTime}
-          onPlayingChange={setPlaying}
-        />
-        <DrawingCanvas active={drawMode} color={penColor} width={penWidth} strokes={strokes} onStrokesChange={setStrokes} />
+    <div
+      ref={containerRef}
+      className="relative flex h-full flex-col lg:flex-row"
+      onMouseMove={isFullscreen ? showControlsTemporarily : undefined}
+    >
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className={`relative bg-black ${isFullscreen ? 'flex-1' : 'flex-1 lg:aspect-video lg:flex-none'}`}>
+          <VideoStage
+            ref={controllerRef}
+            source={source}
+            onDurationChange={setDuration}
+            onTimeUpdate={setCurrentTime}
+            onPlayingChange={setPlaying}
+          />
+          <DrawingCanvas active={drawMode} color={penColor} width={penWidth} strokes={strokes} onStrokesChange={setStrokes} />
+          {isFullscreen && (
+            <div
+              className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent px-3 pb-2 pt-10 transition-opacity duration-300 ${
+                controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'
+              }`}
+            >
+              {scrubAndControls}
+            </div>
+          )}
+        </div>
+
+        {!isFullscreen && (
+          <div className="border-t border-white/10 bg-panel px-3 pt-2">
+            {scrubAndControls}
+            {/* Narrower than `lg`: collapsible drawer below the controls, same layout this
+               page has always used. The always-visible side panel below replaces this at
+               `lg` and up instead. */}
+            <div className="lg:hidden">
+              <BookmarksDrawer
+                {...bookmarksDrawerProps}
+                layout="drawer"
+                expanded={drawerExpanded}
+                onToggleExpanded={() => setDrawerExpanded((v) => !v)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="border-t border-white/10 bg-panel px-3 pt-2">
-        <ScrubBar
-          duration={duration}
-          currentTime={currentTime}
-          inPoint={inPoint}
-          outPoint={outPoint || duration}
-          onSeek={seekTo}
-          onSetIn={setInPoint}
-          onSetOut={setOutPoint}
-        />
-        <ControlBar
-          playing={playing}
-          onTogglePlay={togglePlay}
-          slowRev={slowRev}
-          fastRev={fastRev}
-          fastFwd={fastFwd}
-          slowFwd={slowFwd}
-          onSetIn={() => setInPoint(currentTime)}
-          onSetOut={() => setOutPoint(currentTime)}
-          looping={looping}
-          onToggleLoop={() => setLooping((v) => !v)}
-          drawMode={drawMode}
-          onToggleDraw={() => setDrawMode((v) => !v)}
-          onResetDrawing={() => setStrokes([])}
-          currentTime={currentTime}
-          duration={duration}
-          onBookmark={handleBookmarkClick}
-        />
-        <BookmarksDrawer
-          bookmarks={bookmarks}
-          gameId={gameId}
-          clipId={clipId}
-          expanded={drawerExpanded}
-          onToggleExpanded={() => setDrawerExpanded((v) => !v)}
-          focusBookmarkId={focusBookmarkId}
-          onFocusConsumed={() => setFocusBookmarkId(null)}
-          onSeek={seekTo}
-          onUpdateNote={onUpdateBookmarkNote}
-          onDeleteRequest={(bookmark) => {
-            setDeletingBookmark(bookmark)
-            setDeleteBookmarkError(null)
-          }}
-        />
-      </div>
+      {!isFullscreen && (
+        <div className="hidden border-t border-white/10 bg-panel lg:flex lg:w-80 lg:flex-col lg:border-l lg:border-t-0 xl:w-96">
+          <BookmarksDrawer {...bookmarksDrawerProps} layout="panel" expanded onToggleExpanded={() => {}} />
+        </div>
+      )}
 
       {deletingBookmark && (
         <DeleteConfirmModal

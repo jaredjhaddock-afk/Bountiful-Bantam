@@ -6,6 +6,11 @@ import { CheckIcon, ShareIcon, TrashIcon } from '../icons'
 
 interface BookmarksDrawerProps {
   bookmarks: Bookmark[]
+  /** 'drawer' (default mobile/narrow layout): a collapsible section below the controls,
+   *  capped height, own top border. 'panel' (desktop side column): always expanded, fills
+   *  the height of its parent column, no collapse toggle — `expanded`/`onToggleExpanded`
+   *  are ignored in this mode. */
+  layout: 'drawer' | 'panel'
   expanded: boolean
   onToggleExpanded: () => void
   /** The bookmark to open in edit mode, if any. Must be an id newly added to `bookmarks`
@@ -106,6 +111,7 @@ function BookmarkRow({
 
 export function BookmarksDrawer({
   bookmarks,
+  layout,
   expanded,
   onToggleExpanded,
   focusBookmarkId,
@@ -131,6 +137,34 @@ export function BookmarksDrawer({
     }
   }
 
+  const rows =
+    bookmarks.length === 0 ? (
+      <p className="px-2 py-1 text-xs text-muted">No bookmarks yet.</p>
+    ) : (
+      bookmarks.map((b) => (
+        <BookmarkRow
+          key={b.id}
+          bookmark={b}
+          autoFocus={b.id === focusBookmarkId}
+          onFocusConsumed={onFocusConsumed}
+          onSeek={onSeek}
+          onUpdateNote={onUpdateNote}
+          onDeleteRequest={onDeleteRequest}
+          onShare={gameId ? () => handleShare(b) : null}
+          justCopied={copiedBookmarkId === b.id}
+        />
+      ))
+    )
+
+  if (layout === 'panel') {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted">Bookmarks ({bookmarks.length})</div>
+        <div className="flex-1 overflow-auto px-1 pb-2">{rows}</div>
+      </div>
+    )
+  }
+
   return (
     <div className="border-t border-white/10">
       <button
@@ -141,27 +175,7 @@ export function BookmarksDrawer({
         <span>Bookmarks ({bookmarks.length})</span>
         <span>{expanded ? '▾' : '▸'}</span>
       </button>
-      {expanded && (
-        <div className="max-h-40 overflow-auto px-1 pb-2">
-          {bookmarks.length === 0 ? (
-            <p className="px-2 py-1 text-xs text-muted">No bookmarks yet.</p>
-          ) : (
-            bookmarks.map((b) => (
-              <BookmarkRow
-                key={b.id}
-                bookmark={b}
-                autoFocus={b.id === focusBookmarkId}
-                onFocusConsumed={onFocusConsumed}
-                onSeek={onSeek}
-                onUpdateNote={onUpdateNote}
-                onDeleteRequest={onDeleteRequest}
-                onShare={gameId ? () => handleShare(b) : null}
-                justCopied={copiedBookmarkId === b.id}
-              />
-            ))
-          )}
-        </div>
-      )}
+      {expanded && <div className="max-h-40 overflow-auto px-1 pb-2">{rows}</div>}
     </div>
   )
 }

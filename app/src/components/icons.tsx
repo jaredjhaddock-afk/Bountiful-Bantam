@@ -290,3 +290,15 @@ export const CalendarIcon = (p: IconProps) => (
     <path d="M3 9h18M8 3v4M16 3v4" />
   </svg>
 )
+export const PrevBookmarkIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M6 5v14" />
+    <path d="M18 6l-9 6 9 6z" fill="currentColor" stroke="none" />
+  </svg>
+)
+export const NextBookmarkIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M18 5v14" />
+    <path d="M6 6l9 6-9 6z" fill="currentColor" stroke="none" />
+  </svg>
+)

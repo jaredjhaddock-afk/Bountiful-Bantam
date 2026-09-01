@@ -5,10 +5,12 @@ import {
   FastRevIcon,
   InIcon,
   LoopIcon,
+  NextBookmarkIcon,
   OutIcon,
   PauseIcon,
   PencilIcon,
   PlayTriangleIcon,
+  PrevBookmarkIcon,
   SlowFwdIcon,
   SlowRevIcon,
   TrashIcon,
@@ -39,6 +41,8 @@ interface ControlBarProps {
   currentTime: number
   duration: number
   onBookmark: () => void
+  onPrevBookmark: () => void
+  onNextBookmark: () => void
 }
 
 function HoldButton({ handlers, label, children }: { handlers: HandlerPair; label: string; children: React.ReactNode }) {
@@ -74,6 +78,8 @@ export function ControlBar({
   currentTime,
   duration,
   onBookmark,
+  onPrevBookmark,
+  onNextBookmark,
 }: ControlBarProps) {
   return (
     <div className="flex items-center justify-between gap-4 px-3 py-2">
@@ -120,6 +126,23 @@ export function ControlBar({
           aria-label="Toggle loop"
         >
           <LoopIcon width={16} height={16} />
+        </button>
+      </div>
+
+      <div className="flex items-center gap-1">
+        <button
+          onClick={onPrevBookmark}
+          className="rounded-standard p-1.5 text-text hover:bg-white/10"
+          aria-label="Previous bookmark"
+        >
+          <PrevBookmarkIcon width={16} height={16} />
+        </button>
+        <button
+          onClick={onNextBookmark}
+          className="rounded-standard p-1.5 text-text hover:bg-white/10"
+          aria-label="Next bookmark"
+        >
+          <NextBookmarkIcon width={16} height={16} />
         </button>
       </div>
 
