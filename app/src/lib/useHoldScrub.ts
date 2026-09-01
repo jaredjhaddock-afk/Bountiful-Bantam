@@ -23,8 +23,18 @@ export function useHoldScrub({ controller, direction, speed, bounds, onTick }: H
         window.clearInterval(intervalRef.current)
         intervalRef.current = null
       }
-      if (releaseAction === 'play') controller?.play()
-      else controller?.pause()
+      if (releaseAction === 'play') {
+        controller?.play()
+        return
+      }
+      controller?.pause()
+      // YouTube's IFrame API can silently resume playback shortly after a seekTo() call,
+      // even on an already-paused player — a well-documented quirk, not specific to this
+      // app. The scrub loop below calls seekTo() on every tick, so the very last tick right
+      // before release can still be mid-resume when this pause() fires. A second pause a
+      // beat later catches that race. Harmless no-op for file/Drive clips (a native <video>
+      // element never un-pauses itself from a seek).
+      window.setTimeout(() => controller?.pause(), 60)
     },
     [controller],
   )
