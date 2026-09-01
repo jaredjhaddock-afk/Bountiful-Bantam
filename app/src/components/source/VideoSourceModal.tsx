@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { VideoSource } from '../../types/video'
 import { parseYouTubeId } from '../../lib/youtube'
-import { openDrivePicker, requestDriveAccessToken } from '../../lib/googleDrive'
+import { loadGoogleApis, openDrivePicker, requestDriveAccessToken } from '../../lib/googleDrive'
 import { DriveIcon, UploadIcon, YoutubeIcon } from '../icons'
 
 interface VideoSourceModalProps {
@@ -32,6 +32,17 @@ export function VideoSourceModal({ onSelect }: VideoSourceModalProps) {
     onSelect({ type: 'file', url: URL.createObjectURL(file), fileName: file.name, fileSize: file.size })
   }
 
+  // Kicks off loading Google's Identity Services + Picker scripts as soon as the Drive
+  // tab is selected, well before the user actually taps Connect. Mobile browsers only
+  // allow the OAuth popup when it opens synchronously within a real tap — if these
+  // scripts were still loading at tap time, that load delay pushes the popup call
+  // outside the browser's "recent user gesture" window and it gets silently blocked
+  // (Connect just hangs on "Connecting…" forever, with no error). Loading ahead of time
+  // means requestDriveAccessToken()'s own script-load step resolves near-instantly.
+  useEffect(() => {
+    if (tab === 'drive') loadGoogleApis().catch(() => {})
+  }, [tab])
+
   const handleConnectDrive = async () => {
     setDriveError(null)
     setDriveConnecting(true)
@@ -40,8 +51,8 @@ export function VideoSourceModal({ onSelect }: VideoSourceModalProps) {
       const picked = await openDrivePicker(token)
       if (!picked) return
       onSelect({ type: 'drive', url: picked.fileId, fileName: picked.name, fileSize: picked.sizeBytes, driveAccessToken: token })
-    } catch {
-      setDriveError('Could not connect to Google Drive. Try again.')
+    } catch (err) {
+      setDriveError(err instanceof Error ? err.message : 'Could not connect to Google Drive. Try again.')
     } finally {
       setDriveConnecting(false)
     }

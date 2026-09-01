@@ -41,15 +41,36 @@ function requireEnv(name: string): string {
 /** Opens Google's OAuth popup requesting the narrowest Drive scope (`drive.file`),
  *  which only grants access to whatever the user explicitly picks via the Picker below
  *  — not their whole Drive. Resolves with a short-lived access token, or rejects if the
- *  user denies/closes the popup. */
+ *  user denies/closes the popup.
+ *
+ *  Mobile browsers (Safari in particular) only allow a popup to open when it's triggered
+ *  synchronously within a real tap — if the Google Identity Services script hasn't loaded
+ *  yet, the `await loadGoogleApis()` below can take long enough that the browser no
+ *  longer considers the eventual `requestAccessToken()` call part of that tap, and
+ *  silently blocks the popup with no error callback at all. Callers should call
+ *  `loadGoogleApis()` ahead of time (e.g. as soon as the Drive tab is selected, well
+ *  before the user actually taps Connect) so this resolves near-instantly by the time
+ *  it's actually invoked. The timeout below is the safety net for when that still isn't
+ *  enough — without it, a blocked popup leaves the caller hanging forever with no
+ *  feedback, which is exactly what silently happened before this was added. */
 export function requestDriveAccessToken(): Promise<string> {
   return loadGoogleApis().then(
     () =>
       new Promise<string>((resolve, reject) => {
+        let settled = false
+        const timeoutId = window.setTimeout(() => {
+          if (settled) return
+          settled = true
+          reject(new Error('Google sign-in did not respond — your browser may have blocked the popup.'))
+        }, 15000)
+
         const tokenClient = window.google.accounts.oauth2.initTokenClient({
           client_id: requireEnv('VITE_GOOGLE_CLIENT_ID'),
           scope: 'https://www.googleapis.com/auth/drive.file',
           callback: (response: any) => {
+            if (settled) return
+            settled = true
+            window.clearTimeout(timeoutId)
             if (response.error) reject(new Error(response.error))
             else resolve(response.access_token)
           },
