@@ -86,6 +86,18 @@ export interface DrivePickedFile {
   sizeBytes: number
 }
 
+// A Google OAuth Client ID is formatted as `<project number>-<random>.apps.googleusercontent.com`
+// — this pulls the project number back out rather than duplicating it as a separate constant
+// that could silently drift out of sync with the real client ID.
+function googleCloudProjectNumber(): string {
+  const clientId = requireEnv('VITE_GOOGLE_CLIENT_ID')
+  const projectNumber = clientId.split('-')[0]
+  if (!projectNumber || !/^\d+$/.test(projectNumber)) {
+    throw new Error('Could not determine the Google Cloud project number from VITE_GOOGLE_CLIENT_ID')
+  }
+  return projectNumber
+}
+
 /** Opens Google's Picker UI, filtered to video files. Resolves with the picked file, or
  *  `null` if the user cancels without picking. */
 export function openDrivePicker(accessToken: string): Promise<DrivePickedFile | null> {
@@ -97,6 +109,11 @@ export function openDrivePicker(accessToken: string): Promise<DrivePickedFile | 
           .addView(view)
           .setOAuthToken(accessToken)
           .setDeveloperKey(requireEnv('VITE_GOOGLE_API_KEY'))
+          // Required with the `drive.file` scope: without it, a file picked here can end up
+          // not actually linked to this OAuth client's grant, so the very next authenticated
+          // fetch for that same file (right after picking it) gets rejected as if it were
+          // never shared at all.
+          .setAppId(googleCloudProjectNumber())
           .setCallback((data: any) => {
             if (data.action === window.google.picker.Action.PICKED) {
               const doc = data.docs[0]
