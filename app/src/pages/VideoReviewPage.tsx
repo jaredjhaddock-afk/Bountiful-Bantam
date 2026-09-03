@@ -10,7 +10,7 @@ import { useClipBookmarks } from '../state/bookmarksStore'
 import { fileFingerprint } from '../lib/bookmarkUtils'
 import { gameLabel } from '../lib/gameLabel'
 import type { ShareTarget } from '../lib/shareLink'
-import type { Stroke, VideoSource } from '../types/video'
+import type { FramingKeyframe, Stroke, VideoSource } from '../types/video'
 
 interface VideoReviewPageProps {
   nav: React.ReactNode
@@ -192,7 +192,7 @@ export function VideoReviewPage({ nav, pendingTarget, onPendingTargetHandled }: 
   // StrictMode double-invokes updater functions in dev to surface exactly this kind of impurity,
   // which would have fired the Supabase write twice per real state change.
   const handleClipStateChange = useCallback(
-    (state: { inPoint: number; outPoint: number; drawingStrokes: Stroke[] }) => {
+    (state: { inPoint: number; outPoint: number; drawingStrokes: Stroke[]; framingKeyframes: FramingKeyframe[] }) => {
       const current = activeClipRef.current
       if (!current) return
       const updated = { ...current, ...state }
@@ -229,6 +229,7 @@ export function VideoReviewPage({ nav, pendingTarget, onPendingTargetHandled }: 
           initialSeekTime={initialSeekTime}
           initialTrim={activeClip?.inPoint != null && activeClip?.outPoint != null ? { inPoint: activeClip.inPoint, outPoint: activeClip.outPoint } : undefined}
           initialStrokes={activeClip?.drawingStrokes}
+          initialFramingKeyframes={activeClip?.framingKeyframes}
           onStateChange={activeClip ? handleClipStateChange : undefined}
           bookmarks={bookmarks}
           onCreateBookmark={createBookmark}
