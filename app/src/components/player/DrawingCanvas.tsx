@@ -51,8 +51,18 @@ export function DrawingCanvas({ active, color, width, strokes, onStrokesChange }
   }, [])
 
   const pointFromEvent = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    // getBoundingClientRect() reflects the canvas's on-screen (painted) size, which can
+    // differ from its internal pixel resolution (canvas.width/height, set from the
+    // container's untransformed clientWidth/clientHeight) when an ancestor — such as the
+    // framing-keyframe zoom transform — scales the video area. Normalizing by this ratio
+    // keeps drawn points aligned with the cursor at any zoom level; at scale 1 the ratio
+    // is 1 and this is equivalent to the previous direct subtraction.
+    const canvas = e.currentTarget
+    const rect = canvas.getBoundingClientRect()
+    return {
+      x: ((e.clientX - rect.left) / rect.width) * canvas.width,
+      y: ((e.clientY - rect.top) / rect.height) * canvas.height,
+    }
   }
 
   const [isDrawing, setIsDrawing] = useState(false)
