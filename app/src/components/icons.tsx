@@ -302,3 +302,9 @@ export const NextBookmarkIcon = (p: IconProps) => (
     <path d="M6 6l9 6-9 6z" fill="currentColor" stroke="none" />
   </svg>
 )
+export const FrameIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4" />
+    <rect x="7" y="7" width="10" height="10" rx="1" />
+  </svg>
+)
