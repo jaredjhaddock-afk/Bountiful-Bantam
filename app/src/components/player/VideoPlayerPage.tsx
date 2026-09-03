@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { MediaController, Stroke, VideoSource } from '../../types/video'
+import type { FramingKeyframe, MediaController, Stroke, VideoSource } from '../../types/video'
 import type { Bookmark } from '../../state/bookmarksStore'
 import { useHoldScrub } from '../../lib/useHoldScrub'
 import { findAdjacentBookmark } from '../../lib/bookmarkUtils'
+import { FULL_FRAME, framingToTransform, interpolateFraming } from '../../lib/framingTransform'
 import { ControlBar } from './ControlBar'
 import { BookmarksDrawer } from './BookmarksDrawer'
 import { DrawingCanvas } from './DrawingCanvas'
+import { FramingOverlay } from './FramingOverlay'
 import { ScrubBar } from './ScrubBar'
 import { VideoStage } from './VideoStage'
 import { DeleteConfirmModal } from '../playbook/DeleteConfirmModal'
@@ -17,7 +19,13 @@ interface VideoPlayerPageProps {
   initialTrim?: { inPoint: number; outPoint: number }
   initialSeekTime?: number
   initialStrokes?: Stroke[]
-  onStateChange?: (state: { inPoint: number; outPoint: number; drawingStrokes: Stroke[] }) => void
+  initialFramingKeyframes?: FramingKeyframe[]
+  onStateChange?: (state: {
+    inPoint: number
+    outPoint: number
+    drawingStrokes: Stroke[]
+    framingKeyframes: FramingKeyframe[]
+  }) => void
   bookmarks: Bookmark[]
   onCreateBookmark: (timeSeconds: number) => Bookmark
   onUpdateBookmarkNote: (id: string, note: string) => void
@@ -31,6 +39,7 @@ export function VideoPlayerPage({
   initialTrim,
   initialSeekTime,
   initialStrokes,
+  initialFramingKeyframes,
   onStateChange,
   bookmarks,
   onCreateBookmark,
@@ -47,8 +56,27 @@ export function VideoPlayerPage({
   const [looping, setLooping] = useState(false)
   const [drawMode, setDrawMode] = useState(false)
   const [strokes, setStrokes] = useState<Stroke[]>(initialStrokes ?? [])
+  const [framingMode, setFramingMode] = useState(false)
+  const [framingKeyframes, setFramingKeyframes] = useState<FramingKeyframe[]>(initialFramingKeyframes ?? [])
   const [penColor] = useState('#00746b')
   const [penWidth] = useState(3)
+
+  // Draw and Frame both claim click-drag on the video area, so turning one on turns the
+  // other off.
+  const handleToggleDraw = useCallback(() => {
+    setDrawMode((v) => {
+      const next = !v
+      if (next) setFramingMode(false)
+      return next
+    })
+  }, [])
+  const handleToggleFraming = useCallback(() => {
+    setFramingMode((v) => {
+      const next = !v
+      if (next) setDrawMode(false)
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     if (duration > 0 && outPoint === 0) setOutPoint(duration)
@@ -143,8 +171,8 @@ export function VideoPlayerPage({
   }, [playing])
 
   useEffect(() => {
-    onStateChange?.({ inPoint, outPoint, drawingStrokes: strokes })
-  }, [inPoint, outPoint, strokes, onStateChange])
+    onStateChange?.({ inPoint, outPoint, drawingStrokes: strokes, framingKeyframes })
+  }, [inPoint, outPoint, strokes, framingKeyframes, onStateChange])
 
   // Bookmarks: creating pauses and hands the new row straight to the drawer for typing;
   // Prev/Next-bookmark just seeks, using the same pure helper the remote listener uses.
@@ -261,6 +289,12 @@ export function VideoPlayerPage({
     }
   }, [slowRev, slowFwd, fastRev, fastFwd, toggleFullscreen, handlePrevBookmark, handleNextBookmark, handleTag, togglePlay])
 
+  // In edit mode the video always shows the full, unzoomed frame — so the coach can see
+  // the whole picture while placing or adjusting a keyframe — regardless of what the
+  // interpolated framing at the current time would otherwise be.
+  const framingRect = framingMode ? FULL_FRAME : interpolateFraming(framingKeyframes, currentTime)
+  const framingTransformCss = framingToTransform(framingRect)
+
   const scrubAndControls = (
     <>
       <ScrubBar
@@ -271,6 +305,7 @@ export function VideoPlayerPage({
         onSeek={seekTo}
         onSetIn={setInPoint}
         onSetOut={setOutPoint}
+        framingMarkers={framingKeyframes.map((k) => k.timeSeconds)}
       />
       <ControlBar
         playing={playing}
@@ -284,8 +319,11 @@ export function VideoPlayerPage({
         looping={looping}
         onToggleLoop={() => setLooping((v) => !v)}
         drawMode={drawMode}
-        onToggleDraw={() => setDrawMode((v) => !v)}
+        onToggleDraw={handleToggleDraw}
         onResetDrawing={() => setStrokes([])}
+        framingMode={framingMode}
+        onToggleFraming={handleToggleFraming}
+        onResetFraming={() => setFramingKeyframes([])}
         currentTime={currentTime}
         duration={duration}
         onBookmark={handleBookmarkClick}
@@ -316,15 +354,18 @@ export function VideoPlayerPage({
       onMouseMove={isFullscreen ? showControlsTemporarily : undefined}
     >
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className={`relative bg-black ${isFullscreen ? 'flex-1' : 'flex-1 lg:aspect-video lg:flex-none'}`}>
-          <VideoStage
-            ref={controllerRef}
-            source={source}
-            onDurationChange={setDuration}
-            onTimeUpdate={setCurrentTime}
-            onPlayingChange={setPlaying}
-          />
-          <DrawingCanvas active={drawMode} color={penColor} width={penWidth} strokes={strokes} onStrokesChange={setStrokes} />
+        <div className={`relative overflow-hidden bg-black ${isFullscreen ? 'flex-1' : 'flex-1 lg:aspect-video lg:flex-none'}`}>
+          <div className="absolute inset-0" style={{ transform: framingTransformCss, transformOrigin: '0 0' }}>
+            <VideoStage
+              ref={controllerRef}
+              source={source}
+              onDurationChange={setDuration}
+              onTimeUpdate={setCurrentTime}
+              onPlayingChange={setPlaying}
+            />
+            <DrawingCanvas active={drawMode} color={penColor} width={penWidth} strokes={strokes} onStrokesChange={setStrokes} />
+          </div>
+          <FramingOverlay active={framingMode} keyframes={framingKeyframes} currentTime={currentTime} onKeyframeChange={setFramingKeyframes} />
           {isFullscreen && (
             <div
               className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent px-3 pb-2 pt-10 transition-opacity duration-300 ${
