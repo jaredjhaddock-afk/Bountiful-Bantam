@@ -49,6 +49,7 @@ export function ClipsProvider({ children }: { children: ReactNode }) {
         inPoint: null,
         outPoint: null,
         drawingStrokes: [],
+        framingKeyframes: [],
         gameId: gameId ?? null,
       }
       setClips((prev) => [...prev, clip])

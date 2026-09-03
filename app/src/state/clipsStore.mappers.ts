@@ -1,4 +1,4 @@
-import type { Stroke } from '../types/video'
+import type { FramingKeyframe, Stroke } from '../types/video'
 
 export type ClipSourceType = 'youtube' | 'drive' | 'file'
 
@@ -10,6 +10,7 @@ export interface Clip {
   inPoint: number | null
   outPoint: number | null
   drawingStrokes: Stroke[]
+  framingKeyframes: FramingKeyframe[]
   gameId: string | null
 }
 
@@ -21,6 +22,7 @@ export interface ClipRow {
   in_point: number | null
   out_point: number | null
   drawing_strokes: Stroke[]
+  framing_keyframes: FramingKeyframe[]
   game_id: string | null
 }
 
@@ -33,6 +35,7 @@ export function rowToClip(row: ClipRow): Clip {
     inPoint: row.in_point,
     outPoint: row.out_point,
     drawingStrokes: row.drawing_strokes ?? [],
+    framingKeyframes: row.framing_keyframes ?? [],
     gameId: row.game_id,
   }
 }
@@ -54,6 +57,7 @@ export function clipToUpdateRow(clip: Clip) {
     in_point: clip.inPoint,
     out_point: clip.outPoint,
     drawing_strokes: clip.drawingStrokes,
+    framing_keyframes: clip.framingKeyframes,
     game_id: clip.gameId,
   }
 }
