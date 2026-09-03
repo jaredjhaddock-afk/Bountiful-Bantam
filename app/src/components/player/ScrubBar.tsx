@@ -9,11 +9,12 @@ interface ScrubBarProps {
   onSeek: (t: number) => void
   onSetIn: (t: number) => void
   onSetOut: (t: number) => void
+  framingMarkers?: number[]
 }
 
 type Drag = 'playhead' | 'in' | 'out' | null
 
-export function ScrubBar({ duration, currentTime, inPoint, outPoint, onSeek, onSetIn, onSetOut }: ScrubBarProps) {
+export function ScrubBar({ duration, currentTime, inPoint, outPoint, onSeek, onSetIn, onSetOut, framingMarkers }: ScrubBarProps) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<Drag>(null)
 
@@ -52,6 +53,13 @@ export function ScrubBar({ duration, currentTime, inPoint, outPoint, onSeek, onS
           className="absolute top-0 h-full rounded-full bg-scrub-fill"
           style={{ left: `${pct(inPoint)}%`, width: `${Math.max(0, pct(currentTime) - pct(inPoint))}%` }}
         />
+        {framingMarkers?.map((t) => (
+          <div
+            key={t}
+            className="pointer-events-none absolute top-1/2 h-2.5 w-0.5 -translate-x-1/2 -translate-y-1/2 bg-accent-teal"
+            style={{ left: `${pct(t)}%` }}
+          />
+        ))}
         <button
           aria-label="Set in point"
           onMouseDown={(e) => {
