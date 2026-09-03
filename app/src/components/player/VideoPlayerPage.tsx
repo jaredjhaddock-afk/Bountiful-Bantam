@@ -62,21 +62,20 @@ export function VideoPlayerPage({
   const [penWidth] = useState(3)
 
   // Draw and Frame both claim click-drag on the video area, so turning one on turns the
-  // other off.
+  // other off. Each setState call is a separate top-level statement rather than nesting
+  // one inside the other's updater function — React StrictMode double-invokes updater
+  // functions in dev to surface exactly this kind of impurity (same convention as
+  // VideoReviewPage's handleClipStateChange).
   const handleToggleDraw = useCallback(() => {
-    setDrawMode((v) => {
-      const next = !v
-      if (next) setFramingMode(false)
-      return next
-    })
-  }, [])
+    const next = !drawMode
+    setDrawMode(next)
+    if (next) setFramingMode(false)
+  }, [drawMode])
   const handleToggleFraming = useCallback(() => {
-    setFramingMode((v) => {
-      const next = !v
-      if (next) setDrawMode(false)
-      return next
-    })
-  }, [])
+    const next = !framingMode
+    setFramingMode(next)
+    if (next) setDrawMode(false)
+  }, [framingMode])
 
   useEffect(() => {
     if (duration > 0 && outPoint === 0) setOutPoint(duration)
