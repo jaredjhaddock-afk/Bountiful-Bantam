@@ -3,6 +3,7 @@ import {
   BookmarkIcon,
   FastFwdIcon,
   FastRevIcon,
+  FrameIcon,
   InIcon,
   LoopIcon,
   NextBookmarkIcon,
@@ -38,6 +39,9 @@ interface ControlBarProps {
   drawMode: boolean
   onToggleDraw: () => void
   onResetDrawing: () => void
+  framingMode: boolean
+  onToggleFraming: () => void
+  onResetFraming: () => void
   currentTime: number
   duration: number
   onBookmark: () => void
@@ -75,6 +79,9 @@ export function ControlBar({
   drawMode,
   onToggleDraw,
   onResetDrawing,
+  framingMode,
+  onToggleFraming,
+  onResetFraming,
   currentTime,
   duration,
   onBookmark,
@@ -155,6 +162,16 @@ export function ControlBar({
           <PencilIcon width={16} height={16} />
         </button>
         <button onClick={onResetDrawing} className="rounded-standard p-1.5 text-text hover:bg-white/10" aria-label="Clear drawing">
+          <TrashIcon width={16} height={16} />
+        </button>
+        <button
+          onClick={onToggleFraming}
+          className={`rounded-standard p-1.5 ${framingMode ? 'bg-accent-teal/20 text-accent-teal' : 'text-text hover:bg-white/10'}`}
+          aria-label="Toggle framing"
+        >
+          <FrameIcon width={16} height={16} />
+        </button>
+        <button onClick={onResetFraming} className="rounded-standard p-1.5 text-text hover:bg-white/10" aria-label="Reset zoom">
           <TrashIcon width={16} height={16} />
         </button>
       </div>
