@@ -1,0 +1,30 @@
+# Keeps the free-tier Supabase project from auto-pausing (it pauses after ~7 days with no
+# activity, which takes sign-in down until someone manually resumes it). Once a day this
+# runs a trivial query through the REST API, which counts as database activity.
+#
+# The URL and publishable key below are the same values already shipped in the public
+# client bundle, so they are safe to keep in the repo. No service-role key is used.
+#
+# Note: GitHub disables scheduled workflows on a public repo after 60 days with no commits.
+# If that happens, re-enable it from the Actions tab (or just push any commit).
+name: Supabase keep-alive
+
+on:
+  schedule:
+    - cron: '17 14 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query Supabase
+        env:
+          SUPABASE_URL: https://zqmfrxiougxgvyyzuunv.supabase.co
+          SUPABASE_KEY: sb_publishable_DpodMjMKvQ8iEXjs3bi6cg_j9ZUi7ER
+        run: |
+          curl --fail --silent --show-error --retry 3 --retry-delay 10 --max-time 30 \
+            "$SUPABASE_URL/rest/v1/profiles?select=id&limit=1" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY" \
+            -o /dev/null -w "Supabase responded with HTTP %{http_code}\n"
