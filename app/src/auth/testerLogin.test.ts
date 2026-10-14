@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { TESTER_EMAIL_DOMAIN, testerEmail } from './testerLogin'
+import { normalizeAccessCode } from './testerLogin'
 
-describe('testerEmail', () => {
-  it('maps a username to the shared tester email address', () => {
-    expect(testerEmail('Bantamb')).toBe(`bantamb@${TESTER_EMAIL_DOMAIN}`)
+describe('normalizeAccessCode', () => {
+  it('ignores letter case so "BantamB" and "bantamb" both work', () => {
+    expect(normalizeAccessCode('BantamB')).toBe('bantamb')
   })
 
-  it('ignores surrounding whitespace and letter case so testers cannot mistype it', () => {
-    expect(testerEmail('  BANTAMB ')).toBe(testerEmail('bantamb'))
+  it('ignores surrounding whitespace from pasting or autocomplete', () => {
+    expect(normalizeAccessCode('  bantamb \n')).toBe('bantamb')
   })
 })
